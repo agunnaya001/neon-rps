@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Trophy, Crown } from "lucide-react";
 import { formatEther } from "viem";
+import { motion } from "framer-motion";
 import { useAllGames } from "@/hooks/useGames";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { Footer } from "@/components/Footer";
@@ -112,7 +113,11 @@ export default function Leaderboard() {
             No completed matches yet. Be the first to make history.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="overflow-x-auto"
+          >
             <table className="w-full font-mono text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-widest text-muted-foreground border-b border-border/50">
@@ -129,13 +134,22 @@ export default function Leaderboard() {
                   const isMe = me && r.address.toLowerCase() === me;
                   const profit = Number(r.netProfit) / 1e18;
                   return (
-                    <tr
+                    <motion.tr
                       key={r.address}
-                      className={`border-b border-border/20 ${isMe ? "bg-primary/10" : ""}`}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`border-b border-border/20 transition-all ${isMe ? "bg-primary/10 border-primary/30" : ""}`}
+                      whileHover={{ backgroundColor: "rgba(255,0,255,0.05)" }}
                     >
                       <td className="py-3 px-2">
                         {i === 0 ? (
-                          <Trophy className="w-4 h-4 text-accent" />
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <Trophy className="w-4 h-4 text-accent" />
+                          </motion.div>
                         ) : (
                           <span className="text-muted-foreground">{i + 1}</span>
                         )}
@@ -159,16 +173,21 @@ export default function Leaderboard() {
                         {profit >= 0 ? "+" : ""}
                         {profit.toFixed(4)}
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
               </tbody>
             </table>
-            <div className="text-xs font-mono text-muted-foreground mt-4 text-right">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-xs font-mono text-muted-foreground mt-4 text-right"
+            >
               Showing {rows.length} player{rows.length === 1 ? "" : "s"} · Wagered total{" "}
               {formatEther(rows.reduce((s, r) => s + r.totalWagered, 0n))} ETH
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
       </div>
 

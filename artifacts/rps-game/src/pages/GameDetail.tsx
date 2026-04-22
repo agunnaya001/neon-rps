@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { formatEther } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion, Share2, Twitter, Copy } from "lucide-react";
+import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion } from "lucide-react";
 import { toast } from "sonner";
 import { useGame } from "@/hooks/useGames";
 import { useJoinGame, useReveal, useCancelGame, useClaimByDefault } from "@/hooks/useGameActions";
@@ -11,6 +11,8 @@ import { MOVE_LABELS, Move, type PlayableMove } from "@/lib/contract";
 import { loadCommitment, type SavedCommitment } from "@/lib/salt-store";
 import { Footer } from "@/components/Footer";
 import { CountdownTimer } from "@/components/CountdownTimer";
+import { ShareDialog } from "@/components/ShareDialog";
+import { ParticleEffect } from "@/components/ParticleEffect";
 
 const REVEAL_TIMEOUT_SECS = 24n * 60n * 60n;
 
@@ -77,11 +79,20 @@ export default function GameDetail() {
 
   const [joinMove, setJoinMove] = useState<PlayableMove>(Move.Rock);
   const [savedCommit, setSavedCommit] = useState<SavedCommitment | null>(null);
+  const [showParticles, setShowParticles] = useState(false);
 
   useEffect(() => {
     if (!id || !address) return;
     setSavedCommit(loadCommitment(id, address));
   }, [id, address, game?.phase]);
+
+  useEffect(() => {
+    if (game && game.phase === 3 && me && game.winner.toLowerCase() === me) {
+      setShowParticles(true);
+      const timer = setTimeout(() => setShowParticles(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [game?.phase, me]);
 
   const handleJoin = async () => {
     if (!id || !game) return;
@@ -107,19 +118,7 @@ export default function GameDetail() {
     }
   };
 
-  const shareUrl = id
-    ? `${window.location.origin}/api/share/g/${id.toString()}`
-    : window.location.href;
 
-  const copyInvite = () => {
-    navigator.clipboard.writeText(shareUrl);
-    toast.success("Invite link copied!");
-  };
-
-  const shareToX = () => {
-    const text = `Just put ${formatEther(game?.bet || 0n)} ETH on the line in a Rock-Paper-Scissors duel. Think you can read me?`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
-  };
 
   const handleCancel = async () => {
     if (!id) return;
@@ -187,6 +186,7 @@ export default function GameDetail() {
 
   return (
     <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full">
+      <ParticleEffect trigger={showParticles} type="confetti" />
       <div className="mb-6 flex justify-between items-center">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -206,14 +206,12 @@ export default function GameDetail() {
       <PhaseBar phase={game.phase} />
 
       {game.phase === 1 && (
-        <div className="arcade-box border-secondary/50 p-4 max-w-xl mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center flex-wrap">
-          <span className="font-mono text-sm mr-2 text-muted-foreground"><Share2 className="w-4 h-4 inline mr-2"/>INVITE OPPONENT:</span>
-          <button onClick={copyInvite} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background">
-            <Copy className="w-3 h-3" /> COPY LINK
-          </button>
-          <button onClick={shareToX} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background !border-blue-400 !text-blue-400 hover:!bg-blue-400/20">
-            <Twitter className="w-3 h-3" /> CHALLENGE ON X
-          </button>
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="arcade-box border-secondary/50 p-4 max-w-xl mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center flex-wrap"
+        >
+          <ShareDialog gameId={id!} bet={formatEther(game.bet)} />
           {canCancel && (
             <button
               onClick={handleCancel}
@@ -225,7 +223,7 @@ export default function GameDetail() {
                 : "CANCEL & REFUND"}
             </button>
           )}
-        </div>
+        </motion.div>
       )}
 
       {game.phase === 2 && revealDeadline > 0n && (
