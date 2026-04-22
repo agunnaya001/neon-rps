@@ -6,12 +6,22 @@ export const COMMIT_REVEAL_RPS_ABI = [
   },
   {
     "inputs": [],
+    "name": "AlreadyRevealedYourMove",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "CannotJoinOwnGame",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "CommitmentMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DeadlineNotPassed",
     "type": "error"
   },
   {
@@ -31,6 +41,16 @@ export const COMMIT_REVEAL_RPS_ABI = [
   },
   {
     "inputs": [],
+    "name": "NotPlayer1",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OpponentAlsoRevealed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "WrongBet",
     "type": "error"
   },
@@ -38,6 +58,56 @@ export const COMMIT_REVEAL_RPS_ABI = [
     "inputs": [],
     "name": "WrongPhase",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player1",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "refund",
+        "type": "uint256"
+      }
+    ],
+    "name": "GameCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "winner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "payout",
+        "type": "uint256"
+      }
+    ],
+    "name": "GameClaimedByDefault",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -78,6 +148,12 @@ export const COMMIT_REVEAL_RPS_ABI = [
         "internalType": "address",
         "name": "player2",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
       }
     ],
     "name": "GameJoined",
@@ -151,6 +227,45 @@ export const COMMIT_REVEAL_RPS_ABI = [
     ],
     "name": "MoveRevealed",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "REVEAL_TIMEOUT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "cancelGame",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimByDefault",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
@@ -256,6 +371,11 @@ export const COMMIT_REVEAL_RPS_ABI = [
             "internalType": "address",
             "name": "winner",
             "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "joinedAt",
+            "type": "uint64"
           }
         ],
         "internalType": "struct CommitRevealRPS.Game",
@@ -344,6 +464,25 @@ export const COMMIT_REVEAL_RPS_ABI = [
     "name": "reveal",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "revealDeadline",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   }
 ] as const;

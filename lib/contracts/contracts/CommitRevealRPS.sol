@@ -17,7 +17,8 @@ contract CommitRevealRPS {
         WaitingForOpponent,
         WaitingForReveals,
         Resolved,
-        Refunded
+        Refunded,
+        Cancelled
     }
 
     struct Game {
@@ -30,7 +31,12 @@ contract CommitRevealRPS {
         Move move2;
         Phase phase;
         address winner;
+        uint64 joinedAt;
     }
+
+    /// @notice Players have this long after `joinGame` to reveal before the
+    ///         no-show can be slashed.
+    uint256 public constant REVEAL_TIMEOUT = 24 hours;
 
     uint256 public nextGameId;
     mapping(uint256 => Game) private games;
@@ -39,19 +45,25 @@ contract CommitRevealRPS {
     mapping(uint256 => bool) private isOpen;
 
     event GameCreated(uint256 indexed gameId, address indexed player1, uint256 bet);
-    event GameJoined(uint256 indexed gameId, address indexed player2);
+    event GameJoined(uint256 indexed gameId, address indexed player2, uint64 deadline);
+    event GameCancelled(uint256 indexed gameId, address indexed player1, uint256 refund);
     event MoveRevealed(uint256 indexed gameId, address indexed player, Move move);
     event GameResolved(uint256 indexed gameId, address indexed winner, uint256 payout);
     event GameTied(uint256 indexed gameId, uint256 refundEach);
+    event GameClaimedByDefault(uint256 indexed gameId, address indexed winner, uint256 payout);
 
     error InvalidGame();
     error WrongPhase();
     error WrongBet();
     error NotAPlayer();
+    error NotPlayer1();
     error AlreadyRevealed();
     error InvalidMove();
     error CommitmentMismatch();
     error CannotJoinOwnGame();
+    error DeadlineNotPassed();
+    error AlreadyRevealedYourMove();
+    error OpponentAlsoRevealed();
 
     /// @notice Create a new game with a hidden move and a bet.
     /// @param commitment keccak256(abi.encode(msg.sender, move, salt))
@@ -72,6 +84,23 @@ contract CommitRevealRPS {
         emit GameCreated(gameId, msg.sender, msg.value);
     }
 
+    /// @notice Cancel an unjoined game and refund player1.
+    function cancelGame(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.player1 == address(0)) revert InvalidGame();
+        if (g.phase != Phase.WaitingForOpponent) revert WrongPhase();
+        if (msg.sender != g.player1) revert NotPlayer1();
+
+        g.phase = Phase.Cancelled;
+        _removeFromOpen(gameId);
+
+        uint256 refund = g.bet;
+        if (refund > 0) {
+            _payout(g.player1, refund);
+        }
+        emit GameCancelled(gameId, g.player1, refund);
+    }
+
     /// @notice Join an existing game by matching the bet and posting your commitment.
     function joinGame(uint256 gameId, bytes32 commitment) external payable {
         Game storage g = games[gameId];
@@ -84,10 +113,11 @@ contract CommitRevealRPS {
         g.player2 = msg.sender;
         g.commitment2 = commitment;
         g.phase = Phase.WaitingForReveals;
+        g.joinedAt = uint64(block.timestamp);
 
         _removeFromOpen(gameId);
 
-        emit GameJoined(gameId, msg.sender);
+        emit GameJoined(gameId, msg.sender, uint64(block.timestamp + REVEAL_TIMEOUT));
     }
 
     /// @notice Reveal your move and salt. When both players have revealed, the
@@ -119,6 +149,37 @@ contract CommitRevealRPS {
         if (g.move1 != Move.None && g.move2 != Move.None) {
             _resolve(gameId);
         }
+    }
+
+    /// @notice After REVEAL_TIMEOUT, the player who already revealed can claim
+    ///         the entire pot if their opponent never revealed.
+    function claimByDefault(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.player1 == address(0)) revert InvalidGame();
+        if (g.phase != Phase.WaitingForReveals) revert WrongPhase();
+        if (block.timestamp < uint256(g.joinedAt) + REVEAL_TIMEOUT) {
+            revert DeadlineNotPassed();
+        }
+
+        bool isP1 = msg.sender == g.player1;
+        bool isP2 = msg.sender == g.player2;
+        if (!isP1 && !isP2) revert NotAPlayer();
+
+        if (isP1) {
+            if (g.move1 == Move.None) revert AlreadyRevealedYourMove();
+            if (g.move2 != Move.None) revert OpponentAlsoRevealed();
+        } else {
+            if (g.move2 == Move.None) revert AlreadyRevealedYourMove();
+            if (g.move1 != Move.None) revert OpponentAlsoRevealed();
+        }
+
+        g.phase = Phase.Resolved;
+        g.winner = msg.sender;
+        uint256 pot = g.bet * 2;
+        if (pot > 0) {
+            _payout(msg.sender, pot);
+        }
+        emit GameClaimedByDefault(gameId, msg.sender, pot);
     }
 
     function _resolve(uint256 gameId) internal {
@@ -187,6 +248,14 @@ contract CommitRevealRPS {
 
     function openGamesCount() external view returns (uint256) {
         return openGameIds.length;
+    }
+
+    /// @notice Returns the unix timestamp by which both players must reveal,
+    ///         or 0 if the game isn't in the reveal phase.
+    function revealDeadline(uint256 gameId) external view returns (uint256) {
+        Game storage g = games[gameId];
+        if (g.phase != Phase.WaitingForReveals) return 0;
+        return uint256(g.joinedAt) + REVEAL_TIMEOUT;
     }
 
     /// @notice Helper for off-chain code: computes the commitment the same way

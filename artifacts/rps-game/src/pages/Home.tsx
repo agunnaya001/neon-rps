@@ -95,10 +95,13 @@ export default function Home() {
         </div>
       )}
 
-      <div className="mb-12 flex justify-center">
-        <Link href="/create" className="arcade-btn px-8 py-4 text-xl flex items-center gap-3 w-full md:w-auto justify-center">
+      <div className="mb-12 flex flex-col sm:flex-row justify-center gap-4">
+        <Link href="/create" className="arcade-btn px-8 py-4 text-xl flex items-center gap-3 justify-center">
           <Swords className="w-6 h-6" />
           START NEW DUEL
+        </Link>
+        <Link href="/leaderboard" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center">
+          LEADERBOARD
         </Link>
       </div>
 

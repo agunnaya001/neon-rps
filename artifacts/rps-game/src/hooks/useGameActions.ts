@@ -162,6 +162,74 @@ export function useJoinGame() {
   return { joinGame, ...tx };
 }
 
+export function useCancelGame() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  const tx = useTxStatus();
+
+  const cancelGame = useCallback(
+    async (gameId: bigint): Promise<void> => {
+      ensureReady(address);
+      if (!publicClient) throw new Error("Wallet client not ready");
+      tx.reset();
+      try {
+        tx.setStatus("submitting");
+        const hash = await writeContractAsync({
+          address: CONTRACT_ADDRESS!,
+          abi: COMMIT_REVEAL_RPS_ABI,
+          functionName: "cancelGame",
+          args: [gameId],
+        });
+        tx.setTxHash(hash);
+        tx.setStatus("confirming");
+        await publicClient.waitForTransactionReceipt({ hash });
+        tx.setStatus("success");
+      } catch (err) {
+        tx.setError(err as Error);
+        tx.setStatus("error");
+        throw err;
+      }
+    },
+    [address, publicClient, writeContractAsync, tx],
+  );
+  return { cancelGame, ...tx };
+}
+
+export function useClaimByDefault() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  const tx = useTxStatus();
+
+  const claim = useCallback(
+    async (gameId: bigint): Promise<void> => {
+      ensureReady(address);
+      if (!publicClient) throw new Error("Wallet client not ready");
+      tx.reset();
+      try {
+        tx.setStatus("submitting");
+        const hash = await writeContractAsync({
+          address: CONTRACT_ADDRESS!,
+          abi: COMMIT_REVEAL_RPS_ABI,
+          functionName: "claimByDefault",
+          args: [gameId],
+        });
+        tx.setTxHash(hash);
+        tx.setStatus("confirming");
+        await publicClient.waitForTransactionReceipt({ hash });
+        tx.setStatus("success");
+      } catch (err) {
+        tx.setError(err as Error);
+        tx.setStatus("error");
+        throw err;
+      }
+    },
+    [address, publicClient, writeContractAsync, tx],
+  );
+  return { claim, ...tx };
+}
+
 export function useReveal() {
   const { address } = useAccount();
   const publicClient = usePublicClient();

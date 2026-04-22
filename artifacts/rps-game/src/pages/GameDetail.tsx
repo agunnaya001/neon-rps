@@ -5,11 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion, Share2, Twitter, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useGame } from "@/hooks/useGames";
-import { useJoinGame, useReveal } from "@/hooks/useGameActions";
+import { useJoinGame, useReveal, useCancelGame, useClaimByDefault } from "@/hooks/useGameActions";
 import { useWallet, shortAddress } from "@/lib/wallet";
-import { MOVE_LABELS, Move, PHASE_LABELS, type PlayableMove } from "@/lib/contract";
+import { MOVE_LABELS, Move, type PlayableMove } from "@/lib/contract";
 import { loadCommitment, type SavedCommitment } from "@/lib/salt-store";
 import { Footer } from "@/components/Footer";
+import { CountdownTimer } from "@/components/CountdownTimer";
+
+const REVEAL_TIMEOUT_SECS = 24n * 60n * 60n;
 
 const MoveIcon = ({ move, className }: { move: number, className?: string }) => {
   switch(move) {
@@ -69,6 +72,8 @@ export default function GameDetail() {
   const { address, isConnected, connect } = useWallet();
   const { joinGame, status: joinStatus, error: joinError } = useJoinGame();
   const { reveal, status: revealStatus, error: revealError } = useReveal();
+  const { cancelGame, status: cancelStatus } = useCancelGame();
+  const { claimByDefault, status: claimStatus } = useClaimByDefault();
 
   const [joinMove, setJoinMove] = useState<PlayableMove>(Move.Rock);
   const [savedCommit, setSavedCommit] = useState<SavedCommitment | null>(null);
@@ -102,15 +107,42 @@ export default function GameDetail() {
     }
   };
 
+  const shareUrl = id
+    ? `${window.location.origin}/api/share/g/${id.toString()}`
+    : window.location.href;
+
   const copyInvite = () => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(shareUrl);
     toast.success("Invite link copied!");
   };
 
   const shareToX = () => {
-    const text = `Just put ${formatEther(game?.bet || 0n)} ETH on the line in a Rock-Paper-Scissors duel. Think you can read me? 🪨📄✂️`;
-    const url = window.location.href;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    const text = `Just put ${formatEther(game?.bet || 0n)} ETH on the line in a Rock-Paper-Scissors duel. Think you can read me?`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+  };
+
+  const handleCancel = async () => {
+    if (!id) return;
+    try {
+      const toastId = toast("Cancelling on Sepolia...");
+      await cancelGame(id);
+      toast.dismiss(toastId);
+      toast.success("Match cancelled, bet refunded.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel");
+    }
+  };
+
+  const handleClaim = async () => {
+    if (!id) return;
+    try {
+      const toastId = toast("Claiming pot on Sepolia...");
+      await claimByDefault(id);
+      toast.dismiss(toastId);
+      toast.success("Pot claimed by default!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to claim");
+    }
   };
 
   if (!id) return <div className="p-8 font-mono text-destructive text-center mt-20">INVALID GAME ID</div>;
@@ -128,8 +160,24 @@ export default function GameDetail() {
   const isP1 = me && game.player1.toLowerCase() === me;
   const isP2 = me && game.player2.toLowerCase() === me;
   const myMove = isP1 ? game.move1 : isP2 ? game.move2 : 0;
+  const opponentMove = isP1 ? game.move2 : isP2 ? game.move1 : 0;
   const canJoin = isConnected && !isP1 && game.phase === 1;
   const canReveal = isConnected && (isP1 || isP2) && game.phase === 2 && myMove === 0 && !!savedCommit;
+  const canCancel = isConnected && isP1 && game.phase === 1;
+
+  const revealDeadline = game.phase === 2 && game.joinedAt > 0n
+    ? game.joinedAt + REVEAL_TIMEOUT_SECS
+    : 0n;
+  const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+  const deadlinePassed = revealDeadline > 0n && nowSecs > revealDeadline;
+  // I revealed, opponent didn't, deadline passed → I can claim
+  const canClaim =
+    isConnected &&
+    (isP1 || isP2) &&
+    game.phase === 2 &&
+    myMove !== 0 &&
+    opponentMove === 0 &&
+    deadlinePassed;
 
   const joinMoves = [
     { value: Move.Rock, label: "ROCK", color: "text-red-500", border: "border-red-500" },
@@ -158,7 +206,7 @@ export default function GameDetail() {
       <PhaseBar phase={game.phase} />
 
       {game.phase === 1 && (
-        <div className="arcade-box border-secondary/50 p-4 max-w-md mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center">
+        <div className="arcade-box border-secondary/50 p-4 max-w-xl mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center flex-wrap">
           <span className="font-mono text-sm mr-2 text-muted-foreground"><Share2 className="w-4 h-4 inline mr-2"/>INVITE OPPONENT:</span>
           <button onClick={copyInvite} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background">
             <Copy className="w-3 h-3" /> COPY LINK
@@ -166,6 +214,31 @@ export default function GameDetail() {
           <button onClick={shareToX} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background !border-blue-400 !text-blue-400 hover:!bg-blue-400/20">
             <Twitter className="w-3 h-3" /> CHALLENGE ON X
           </button>
+          {canCancel && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelStatus === "submitting" || cancelStatus === "confirming"}
+              className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background !border-destructive !text-destructive hover:!bg-destructive/20"
+            >
+              {cancelStatus === "submitting" || cancelStatus === "confirming"
+                ? "CANCELLING…"
+                : "CANCEL & REFUND"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {game.phase === 2 && revealDeadline > 0n && (
+        <div className="arcade-box border-accent/40 p-3 max-w-xl mx-auto mb-8 text-center">
+          <span className="font-mono text-xs text-muted-foreground tracking-widest mr-3">REVEAL DEADLINE</span>
+          <CountdownTimer deadlineSecs={revealDeadline} className="text-lg font-bold" />
+        </div>
+      )}
+
+      {game.phase === 5 && (
+        <div className="arcade-box border-muted-foreground/40 p-6 text-center mb-8">
+          <h2 className="text-2xl font-black arcade-text text-muted-foreground mb-1">CANCELLED</h2>
+          <p className="font-mono text-sm text-muted-foreground">Bet refunded to creator.</p>
         </div>
       )}
 
@@ -291,6 +364,27 @@ export default function GameDetail() {
                "REVEAL MOVE"}
             </button>
             {revealError && <div className="mt-4 text-sm font-mono text-destructive text-center">{revealError.message}</div>}
+          </motion.div>
+        )}
+
+        {canClaim && (
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="arcade-box border-accent/80 p-6 max-w-xl mx-auto w-full text-center">
+            <Trophy className="w-12 h-12 text-accent mx-auto mb-3 drop-shadow-[0_0_10px_rgba(255,255,0,0.6)]" />
+            <h2 className="text-2xl font-black arcade-text text-accent mb-2">OPPONENT TIMED OUT</h2>
+            <p className="font-mono text-sm mb-6 text-muted-foreground">
+              They failed to reveal within 24h. Claim the entire pot.
+            </p>
+            <button
+              disabled={claimStatus === "submitting" || claimStatus === "confirming"}
+              onClick={handleClaim}
+              className="arcade-btn w-full py-4 text-xl !border-accent !text-accent hover:!bg-accent/20"
+            >
+              {claimStatus === "submitting"
+                ? "SUBMITTING…"
+                : claimStatus === "confirming"
+                  ? "AWAITING NETWORK…"
+                  : `CLAIM ${formatEther(game.bet * 2n)} ETH`}
+            </button>
           </motion.div>
         )}
 

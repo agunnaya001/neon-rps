@@ -34,8 +34,11 @@ export const PHASE_LABELS = [
   "Waiting for reveals",
   "Resolved",
   "Refunded (tie)",
+  "Cancelled",
 ] as const;
-export type PhaseValue = 0 | 1 | 2 | 3 | 4;
+export type PhaseValue = 0 | 1 | 2 | 3 | 4 | 5;
+
+export const REVEAL_TIMEOUT_SECONDS = 24 * 60 * 60;
 
 export const MOVE_LABELS: Record<number, string> = {
   0: "—",

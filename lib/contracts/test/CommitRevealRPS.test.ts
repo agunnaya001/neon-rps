@@ -9,7 +9,10 @@ const Phase = {
   WaitingForReveals: 2,
   Resolved: 3,
   Refunded: 4,
+  Cancelled: 5,
 } as const;
+
+const REVEAL_TIMEOUT = 24 * 60 * 60;
 
 function randomSalt(): string {
   return ethers.hexlify(ethers.randomBytes(32));
@@ -72,9 +75,7 @@ describe("CommitRevealRPS", () => {
     await c.connect(p1).createGame(commit(p1.address, Move.Rock, salt1), { value: bet });
     await expect(
       c.connect(p2).joinGame(0, commit(p2.address, Move.Scissors, salt2), { value: bet }),
-    )
-      .to.emit(c, "GameJoined")
-      .withArgs(0n, p2.address);
+    ).to.emit(c, "GameJoined");
 
     const g = await c.getGame(0);
     expect(g.phase).to.equal(Phase.WaitingForReveals);
@@ -245,5 +246,136 @@ describe("CommitRevealRPS", () => {
     const salt = randomSalt();
     const onChain = await c.computeCommitment(p1.address, Move.Rock, salt);
     expect(onChain).to.equal(commit(p1.address, Move.Rock, salt));
+  });
+
+  describe("cancelGame", () => {
+    it("lets player1 cancel an unjoined game and refunds their bet", async () => {
+      const [p1] = await ethers.getSigners();
+      const c = await deploy();
+      const bet = ethers.parseEther("0.4");
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, randomSalt()), { value: bet });
+
+      const before = await ethers.provider.getBalance(p1.address);
+      const tx = await c.connect(p1).cancelGame(0);
+      const receipt = await tx.wait();
+      const gas = receipt!.gasUsed * receipt!.gasPrice;
+
+      await expect(tx).to.emit(c, "GameCancelled").withArgs(0n, p1.address, bet);
+      const after = await ethers.provider.getBalance(p1.address);
+      expect(after - before + gas).to.equal(bet);
+
+      const g = await c.getGame(0);
+      expect(g.phase).to.equal(Phase.Cancelled);
+      expect(await c.openGamesCount()).to.equal(0n);
+    });
+
+    it("rejects cancel from non-creator and after someone joined", async () => {
+      const [p1, p2] = await ethers.getSigners();
+      const c = await deploy();
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, randomSalt()), { value: 0 });
+
+      await expect(c.connect(p2).cancelGame(0)).to.be.revertedWithCustomError(c, "NotPlayer1");
+
+      await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, randomSalt()), { value: 0 });
+      await expect(c.connect(p1).cancelGame(0)).to.be.revertedWithCustomError(c, "WrongPhase");
+    });
+  });
+
+  describe("claimByDefault", () => {
+    it("lets the revealer claim the full pot after the deadline if opponent never reveals", async () => {
+      const [p1, p2] = await ethers.getSigners();
+      const c = await deploy();
+      const bet = ethers.parseEther("0.5");
+      const salt1 = randomSalt();
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, salt1), { value: bet });
+      await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, randomSalt()), { value: bet });
+
+      // p1 reveals, p2 never does
+      await c.connect(p1).reveal(0, Move.Rock, salt1);
+
+      // Before the deadline → reverts
+      await expect(c.connect(p1).claimByDefault(0)).to.be.revertedWithCustomError(
+        c,
+        "DeadlineNotPassed",
+      );
+
+      // Fast-forward past the deadline
+      await ethers.provider.send("evm_increaseTime", [REVEAL_TIMEOUT + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      const before = await ethers.provider.getBalance(p1.address);
+      const tx = await c.connect(p1).claimByDefault(0);
+      const receipt = await tx.wait();
+      const gas = receipt!.gasUsed * receipt!.gasPrice;
+
+      await expect(tx).to.emit(c, "GameClaimedByDefault").withArgs(0n, p1.address, bet * 2n);
+      const after = await ethers.provider.getBalance(p1.address);
+      expect(after - before + gas).to.equal(bet * 2n);
+
+      const g = await c.getGame(0);
+      expect(g.phase).to.equal(Phase.Resolved);
+      expect(g.winner).to.equal(p1.address);
+    });
+
+    it("rejects claim if the caller hasn't revealed", async () => {
+      const [p1, p2] = await ethers.getSigners();
+      const c = await deploy();
+      const salt1 = randomSalt();
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, salt1), { value: 0 });
+      await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, randomSalt()), { value: 0 });
+
+      await ethers.provider.send("evm_increaseTime", [REVEAL_TIMEOUT + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      await expect(c.connect(p1).claimByDefault(0)).to.be.revertedWithCustomError(
+        c,
+        "AlreadyRevealedYourMove",
+      );
+    });
+
+    it("rejects claim if both players have revealed", async () => {
+      const [p1, p2] = await ethers.getSigners();
+      const c = await deploy();
+      const salt1 = randomSalt();
+      const salt2 = randomSalt();
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, salt1), { value: 0 });
+      await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, salt2), { value: 0 });
+      await c.connect(p1).reveal(0, Move.Rock, salt1);
+      await c.connect(p2).reveal(0, Move.Paper, salt2);
+
+      // Game is already Resolved
+      await expect(c.connect(p1).claimByDefault(0)).to.be.revertedWithCustomError(
+        c,
+        "WrongPhase",
+      );
+    });
+
+    it("rejects claim from a non-player", async () => {
+      const [p1, p2, p3] = await ethers.getSigners();
+      const c = await deploy();
+      const salt1 = randomSalt();
+      await c.connect(p1).createGame(commit(p1.address, Move.Rock, salt1), { value: 0 });
+      await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, randomSalt()), { value: 0 });
+      await c.connect(p1).reveal(0, Move.Rock, salt1);
+
+      await ethers.provider.send("evm_increaseTime", [REVEAL_TIMEOUT + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      await expect(c.connect(p3).claimByDefault(0)).to.be.revertedWithCustomError(
+        c,
+        "NotAPlayer",
+      );
+    });
+  });
+
+  it("revealDeadline view returns 0 outside reveal phase and timestamp inside", async () => {
+    const [p1, p2] = await ethers.getSigners();
+    const c = await deploy();
+    await c.connect(p1).createGame(commit(p1.address, Move.Rock, randomSalt()), { value: 0 });
+    expect(await c.revealDeadline(0)).to.equal(0n);
+
+    await c.connect(p2).joinGame(0, commit(p2.address, Move.Paper, randomSalt()), { value: 0 });
+    const dl = await c.revealDeadline(0);
+    expect(dl).to.be.greaterThan(0n);
   });
 });

@@ -13,6 +13,7 @@ export type GameRecord = {
   move2: number;
   phase: PhaseValue;
   winner: `0x${string}`;
+  joinedAt: bigint;
 };
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -33,6 +34,7 @@ function normalizeGame(id: bigint, raw: unknown): GameRecord | null {
     move2: Number(r.move2 ?? 0),
     phase: Number(r.phase ?? 0) as PhaseValue,
     winner: (r.winner as `0x${string}`) ?? (ZERO_ADDR as `0x${string}`),
+    joinedAt: (r.joinedAt as bigint) ?? 0n,
   };
 }
 
