@@ -1,12 +1,17 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Swords, Wallet, LogOut, Info, Activity } from "lucide-react";
+import { Swords, Wallet, LogOut, Info, Activity, Flame } from "lucide-react";
 import { useMyGames, useOpenGames, useAllGames } from "@/hooks/useGames";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { CONTRACT_ADDRESS } from "@/lib/contract";
 import { formatEther } from "viem";
 import { Footer } from "@/components/Footer";
+import { PlayerStats } from "@/components/PlayerStats";
+import { GameHistory } from "@/components/GameHistory";
+import { Achievements } from "@/components/Achievements";
+import { WinStreak } from "@/components/WinStreak";
+import { calculateStreaks } from "@/lib/streak-utils";
 
 export default function Home() {
   const { address, isConnected, connect, disconnect } = useWallet();
@@ -26,6 +31,10 @@ export default function Home() {
       else l++;
     });
     return { wins: w, losses: l, ties: t };
+  }, [allGames, address]);
+
+  const { currentStreak, bestStreak } = useMemo(() => {
+    return calculateStreaks(allGames, address);
   }, [allGames, address]);
 
   const recentGames = useMemo(() => {
@@ -106,22 +115,28 @@ export default function Home() {
       </div>
 
       {isConnected && (
-        <div className="mb-12">
-          <h2 className="text-xl font-bold arcade-text text-foreground mb-4 border-b border-primary/30 pb-2">YOUR RECORD</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="arcade-box p-4 text-center border-accent/50 shadow-[0_0_10px_rgba(255,255,0,0.2)]">
-              <div className="text-sm font-mono text-muted-foreground uppercase">Wins</div>
-              <div className="text-3xl font-black arcade-text text-accent">{wins}</div>
+        <div className="mb-12 space-y-8">
+          <div>
+            <div className="flex items-center gap-3 mb-6 border-b border-primary/30 pb-2">
+              <Flame className="w-5 h-5 text-accent" />
+              <h2 className="text-lg md:text-xl font-bold arcade-text text-foreground">YOUR RECORD</h2>
             </div>
-            <div className="arcade-box p-4 text-center border-destructive/50 shadow-[0_0_10px_rgba(255,0,0,0.2)]">
-              <div className="text-sm font-mono text-muted-foreground uppercase">Losses</div>
-              <div className="text-3xl font-black arcade-text text-destructive">{losses}</div>
-            </div>
-            <div className="arcade-box p-4 text-center border-muted-foreground/50">
-              <div className="text-sm font-mono text-muted-foreground uppercase">Ties</div>
-              <div className="text-3xl font-black arcade-text text-muted-foreground">{ties}</div>
-            </div>
+            <PlayerStats wins={wins} losses={losses} ties={ties} showAnimations={true} />
           </div>
+
+          <div>
+            <h3 className="text-lg md:text-xl font-bold arcade-text text-foreground mb-4 border-b border-primary/30 pb-2">WIN STREAK</h3>
+            <WinStreak currentStreak={currentStreak} bestStreak={bestStreak} showAnimation={true} />
+          </div>
+        </div>
+      )}
+
+      {isConnected && (
+        <div className="mb-12">
+          <h2 className="text-lg md:text-xl font-bold arcade-text text-foreground mb-6 border-b border-primary/30 pb-2">ACHIEVEMENTS</h2>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Achievements wins={wins} losses={losses} ties={ties} totalGames={myGames.length + openGames.length} />
+          </motion.div>
         </div>
       )}
 
@@ -207,40 +222,54 @@ export default function Home() {
         </section>
       </div>
 
-      <section className="mb-12">
-        <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-2">
-          <Activity className="w-5 h-5 text-muted-foreground" />
-          <h2 className="text-lg font-bold arcade-text text-muted-foreground">NETWORK ACTIVITY</h2>
-        </div>
-        <div className="arcade-box p-4">
-          {loadingAll ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 bg-border/20 rounded w-full"></div>
-              <div className="h-4 bg-border/20 rounded w-5/6"></div>
-              <div className="h-4 bg-border/20 rounded w-4/6"></div>
-            </div>
-          ) : recentGames.length === 0 ? (
-            <div className="text-center font-mono text-sm text-muted-foreground">No recent activity detected.</div>
+      <div className="grid md:grid-cols-2 gap-8 md:gap-12 mb-12">
+        <section>
+          <div className="flex items-center gap-3 mb-6 border-b border-primary/30 pb-2">
+            <Activity className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-bold arcade-text text-primary">YOUR HISTORY</h2>
+          </div>
+          {isConnected ? (
+            <GameHistory 
+              games={myGames.map(g => ({
+                id: g.id,
+                player1: g.player1,
+                player2: g.player2,
+                winner: g.winner,
+                move1: g.move1,
+                move2: g.move2,
+                bet: g.bet,
+                phase: g.phase,
+              }))} 
+              currentAddress={address}
+              limit={5}
+            />
           ) : (
-            <div className="space-y-2 font-mono text-sm overflow-hidden">
-              {recentGames.map(g => (
-                <div key={g.id.toString()} className="flex justify-between items-center border-b border-border/20 pb-2 last:border-0 last:pb-0 whitespace-nowrap text-ellipsis">
-                  <span className="text-muted-foreground">
-                    <span className="text-foreground mr-2">#{g.id.toString()}</span>
-                    {shortAddress(g.player1)} vs {g.player2 !== "0x0000000000000000000000000000000000000000" ? shortAddress(g.player2) : "????"}
-                  </span>
-                  <span className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className="text-secondary">{formatEther(g.bet)} ETH</span>
-                    <span className="text-xs uppercase px-1 border border-border/50 bg-background/50 hidden sm:inline-block">
-                      {g.phase === 1 ? "Active" : g.phase === 4 ? "Tied" : g.phase === 3 ? "Resolved" : "Active"}
-                    </span>
-                  </span>
-                </div>
-              ))}
+            <div className="arcade-box p-6 text-center">
+              <p className="font-mono text-sm text-muted-foreground">Connect wallet to see your games</p>
             </div>
           )}
-        </div>
-      </section>
+        </section>
+
+        <section>
+          <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-2">
+            <Activity className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-lg font-bold arcade-text text-muted-foreground">NETWORK ACTIVITY</h2>
+          </div>
+          <GameHistory 
+            games={recentGames.map(g => ({
+              id: g.id,
+              player1: g.player1,
+              player2: g.player2,
+              winner: g.winner,
+              move1: g.move1,
+              move2: g.move2,
+              bet: g.bet,
+              phase: g.phase,
+            }))} 
+            limit={5}
+          />
+        </section>
+      </div>
 
       <Footer />
     </div>

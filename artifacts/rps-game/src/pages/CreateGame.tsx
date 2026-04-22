@@ -72,22 +72,24 @@ export default function CreateGame() {
                   const Icon = m.icon;
                   const isSelected = move === m.value;
                   return (
-                    <button
+                    <motion.button
                       key={m.value}
                       onClick={() => setMove(m.value as PlayableMove)}
                       className={`
                         relative flex flex-col items-center justify-center p-4 md:p-6 gap-3 
-                        border-2 transition-all duration-200
+                        border-2 transition-all duration-200 min-h-[100px]
                         ${isSelected 
                           ? `bg-${m.border.replace('border-', '')}/20 ${m.border} shadow-[0_0_20px_var(--tw-shadow-color)] shadow-${m.border.replace('border-', '')}/50 scale-105` 
                           : 'border-border/50 hover:border-border hover:bg-background/50'}
                       `}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       <Icon className={`w-8 h-8 md:w-12 md:h-12 ${isSelected ? m.color : 'text-muted-foreground'}`} />
                       <span className={`font-bold arcade-text text-sm md:text-base ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {m.label}
                       </span>
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
