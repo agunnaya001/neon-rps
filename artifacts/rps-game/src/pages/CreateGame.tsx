@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, Hand, HandMetal, Scissors } from "lucide-react";
+import { toast } from "sonner";
 import { useCreateGame } from "@/hooks/useGameActions";
 import { useWallet } from "@/lib/wallet";
 import { Move, type PlayableMove } from "@/lib/contract";
+import { Footer } from "@/components/Footer";
 
 export default function CreateGame() {
   const { isConnected, connect } = useWallet();
@@ -15,10 +17,13 @@ export default function CreateGame() {
 
   async function onSubmit() {
     try {
+      const toastId = toast("Confirming on Sepolia...");
       const id = await createGame(move, bet);
+      toast.dismiss(toastId);
+      toast.success("Move committed!");
       setLocation(`/game/${id}`);
-    } catch {
-      /* surfaced via error */
+    } catch (err: any) {
+      toast.error(err.message || "Transaction failed");
     }
   }
 
@@ -124,6 +129,7 @@ export default function CreateGame() {
           </motion.div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

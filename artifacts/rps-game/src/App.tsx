@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProviders } from "@/lib/providers";
 import NotFound from "@/pages/not-found";
@@ -25,7 +25,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>
-        <Toaster />
+        <Toaster theme="dark" toastOptions={{ className: 'arcade-box font-mono !border-primary' }} />
       </TooltipProvider>
     </AppProviders>
   );

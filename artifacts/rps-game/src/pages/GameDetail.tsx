@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { formatEther } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion } from "lucide-react";
+import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion, Share2, Twitter, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { useGame } from "@/hooks/useGames";
 import { useJoinGame, useReveal } from "@/hooks/useGameActions";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { MOVE_LABELS, Move, PHASE_LABELS, type PlayableMove } from "@/lib/contract";
 import { loadCommitment, type SavedCommitment } from "@/lib/salt-store";
+import { Footer } from "@/components/Footer";
 
 const MoveIcon = ({ move, className }: { move: number, className?: string }) => {
   switch(move) {
@@ -16,6 +18,48 @@ const MoveIcon = ({ move, className }: { move: number, className?: string }) => 
     case 3: return <Scissors className={className} />;
     default: return <ShieldQuestion className={className} />;
   }
+};
+
+const PhaseBar = ({ phase }: { phase: number }) => {
+  const steps = [
+    { num: 1, label: "CREATED" },
+    { num: 2, label: "JOINED" },
+    { num: 3, label: "REVEALED" },
+    { num: 4, label: "SETTLED" }
+  ];
+
+  const currentStep = phase === 4 ? 4 : phase;
+
+  return (
+    <div className="flex items-center justify-between w-full max-w-2xl mx-auto mb-10 relative">
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-border/50 -z-10"></div>
+      <div 
+        className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary transition-all duration-500 -z-10"
+        style={{ width: `${((currentStep - 1) / 3) * 100}%` }}
+      ></div>
+      
+      {steps.map((step) => {
+        const isActive = currentStep === step.num;
+        const isPast = currentStep > step.num;
+        
+        return (
+          <div key={step.num} className="flex flex-col items-center gap-2">
+            <div className={`
+              w-8 h-8 rounded-full flex items-center justify-center font-mono text-sm font-bold border-2 transition-all duration-300
+              ${isActive ? 'bg-background border-primary text-primary shadow-[0_0_15px_rgba(255,0,255,0.6)] scale-110' : ''}
+              ${isPast ? 'bg-primary border-primary text-primary-foreground' : ''}
+              ${!isActive && !isPast ? 'bg-background border-border/50 text-muted-foreground' : ''}
+            `}>
+              {step.num}
+            </div>
+            <span className={`text-[10px] font-mono tracking-widest ${isActive ? 'text-primary drop-shadow-[0_0_5px_currentColor]' : isPast ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export default function GameDetail() {
@@ -34,10 +78,49 @@ export default function GameDetail() {
     setSavedCommit(loadCommitment(id, address));
   }, [id, address, game?.phase]);
 
+  const handleJoin = async () => {
+    if (!id || !game) return;
+    try {
+      const toastId = toast("Confirming on Sepolia...");
+      await joinGame(id, joinMove, game.bet);
+      toast.dismiss(toastId);
+      toast.success("You joined!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to join duel");
+    }
+  };
+
+  const handleReveal = async () => {
+    if (!id || !savedCommit) return;
+    try {
+      const toastId = toast("Confirming on Sepolia...");
+      await reveal(id, savedCommit.move as PlayableMove, savedCommit.salt);
+      toast.dismiss(toastId);
+      toast.success("Revealed!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reveal move");
+    }
+  };
+
+  const copyInvite = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Invite link copied!");
+  };
+
+  const shareToX = () => {
+    const text = `Just put ${formatEther(game?.bet || 0n)} ETH on the line in a Rock-Paper-Scissors duel. Think you can read me? 🪨📄✂️`;
+    const url = window.location.href;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  };
+
   if (!id) return <div className="p-8 font-mono text-destructive text-center mt-20">INVALID GAME ID</div>;
   if (isLoading || !game) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse font-mono text-xl text-primary tracking-widest">LOADING NEURAL LINK...</div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full">
+      <div className="animate-pulse font-mono text-xl text-primary tracking-widest mb-8">LOADING NEURAL LINK...</div>
+      <div className="w-full h-2 bg-primary/20 rounded overflow-hidden">
+        <div className="h-full bg-primary w-1/3 animate-[slide_2s_infinite]"></div>
+      </div>
+      <style>{`@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }`}</style>
     </div>
   );
 
@@ -55,7 +138,7 @@ export default function GameDetail() {
   ];
 
   return (
-    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col">
+    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full">
       <div className="mb-6 flex justify-between items-center">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -66,14 +149,25 @@ export default function GameDetail() {
         </div>
       </div>
 
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <h1 className="text-4xl md:text-6xl font-black arcade-text text-foreground drop-shadow-[0_0_10px_currentColor] mb-2">
           MATCH #{id.toString()}
         </h1>
-        <div className="inline-block bg-primary/20 text-primary border border-primary/50 px-4 py-1 font-mono uppercase tracking-widest text-sm animate-pulse">
-          {PHASE_LABELS[game.phase]}
-        </div>
       </div>
+
+      <PhaseBar phase={game.phase} />
+
+      {game.phase === 1 && (
+        <div className="arcade-box border-secondary/50 p-4 max-w-md mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center">
+          <span className="font-mono text-sm mr-2 text-muted-foreground"><Share2 className="w-4 h-4 inline mr-2"/>INVITE OPPONENT:</span>
+          <button onClick={copyInvite} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background">
+            <Copy className="w-3 h-3" /> COPY LINK
+          </button>
+          <button onClick={shareToX} className="arcade-btn px-3 py-1.5 text-xs flex items-center gap-2 bg-background !border-blue-400 !text-blue-400 hover:!bg-blue-400/20">
+            <Twitter className="w-3 h-3" /> CHALLENGE ON X
+          </button>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-[1fr_auto_1fr] gap-6 items-center mb-12">
         {/* Player 1 Card */}
@@ -170,7 +264,7 @@ export default function GameDetail() {
             </div>
             <button
               disabled={joinStatus === "submitting" || joinStatus === "confirming"}
-              onClick={() => joinGame(id, joinMove, game.bet)}
+              onClick={handleJoin}
               className="arcade-btn arcade-btn-secondary w-full py-4 text-lg"
             >
               {joinStatus === "submitting" ? "ENCRYPTING..." : 
@@ -189,7 +283,7 @@ export default function GameDetail() {
             </p>
             <button
               disabled={revealStatus === "submitting" || revealStatus === "confirming"}
-              onClick={() => reveal(id, savedCommit.move as PlayableMove, savedCommit.salt)}
+              onClick={handleReveal}
               className="arcade-btn w-full py-4 text-xl"
             >
               {revealStatus === "submitting" ? "DECRYPTING..." : 
@@ -212,6 +306,8 @@ export default function GameDetail() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Footer />
     </div>
   );
 }
