@@ -3,7 +3,7 @@ import { sepolia } from "viem/chains";
 
 const CONTRACT_ADDRESS =
   (process.env.CONTRACT_ADDRESS as `0x${string}` | undefined) ??
-  "0x51f082B3ff0CAdFB7e06984c89523AE03B02162d";
+  "0xEd992aD017878DdB67E7d431f53EaF862f034BA6";
 
 const RPC_URL =
   process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";

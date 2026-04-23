@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { formatEther } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion } from "lucide-react";
+import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
-import { useGame } from "@/hooks/useGames";
+import { useGame, useFeeBps } from "@/hooks/useGames";
 import { useJoinGame, useReveal, useCancelGame, useClaimByDefault } from "@/hooks/useGameActions";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { MOVE_LABELS, Move, type PlayableMove } from "@/lib/contract";
@@ -13,6 +13,7 @@ import { Footer } from "@/components/Footer";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { ShareDialog } from "@/components/ShareDialog";
 import { ParticleEffect } from "@/components/ParticleEffect";
+import { FeeBreakdown } from "@/components/FeeBreakdown";
 
 const REVEAL_TIMEOUT_SECS = 24n * 60n * 60n;
 
@@ -72,6 +73,8 @@ export default function GameDetail() {
   const id = params.id ? BigInt(params.id) : undefined;
   const { game, isLoading } = useGame(id);
   const { address, isConnected, connect } = useWallet();
+  const feeBps = useFeeBps();
+  const [, setLocation] = useLocation();
   const { joinGame, status: joinStatus, error: joinError } = useJoinGame();
   const { reveal, status: revealStatus, error: revealError } = useReveal();
   const { cancelGame, status: cancelStatus } = useCancelGame();
@@ -80,6 +83,8 @@ export default function GameDetail() {
   const [joinMove, setJoinMove] = useState<PlayableMove>(Move.Rock);
   const [savedCommit, setSavedCommit] = useState<SavedCommitment | null>(null);
   const [showParticles, setShowParticles] = useState(false);
+
+  const me = address?.toLowerCase();
 
   useEffect(() => {
     if (!id || !address) return;
@@ -92,7 +97,14 @@ export default function GameDetail() {
       const timer = setTimeout(() => setShowParticles(false), 3000);
       return () => clearTimeout(timer);
     }
-  }, [game?.phase, me]);
+    return undefined;
+  }, [game?.phase, me, game]);
+
+  const handleRematch = () => {
+    if (!game) return;
+    const betEth = formatEther(game.bet);
+    setLocation(`/create?bet=${betEth}`);
+  };
 
   const handleJoin = async () => {
     if (!id || !game) return;
@@ -155,7 +167,6 @@ export default function GameDetail() {
     </div>
   );
 
-  const me = address?.toLowerCase();
   const isP1 = me && game.player1.toLowerCase() === me;
   const isP2 = me && game.player2.toLowerCase() === me;
   const myMove = isP1 ? game.move1 : isP2 ? game.move2 : 0;
@@ -212,6 +223,7 @@ export default function GameDetail() {
           className="arcade-box border-secondary/50 p-4 max-w-xl mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center flex-wrap"
         >
           <ShareDialog gameId={id!} bet={formatEther(game.bet)} />
+          <FeeBreakdown bet={game.bet} feeBps={feeBps} className="basis-full mt-2" />
           {canCancel && (
             <button
               onClick={handleCancel}
@@ -302,8 +314,25 @@ export default function GameDetail() {
                 {me && game.winner.toLowerCase() === me && (
                   <p className="mt-4 text-accent font-bold arcade-text animate-pulse">YOU CLAIMED THE POT!</p>
                 )}
+                <FeeBreakdown bet={game.bet} feeBps={feeBps} className="mt-4 max-w-sm mx-auto text-left" />
               </div>
             )}
+          </motion.div>
+        )}
+
+        {(game.phase === 3 || game.phase === 4 || game.phase === 5) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center mb-8"
+          >
+            <button
+              onClick={handleRematch}
+              className="arcade-btn px-6 py-3 flex items-center gap-2 !border-secondary !text-secondary hover:!bg-secondary/20"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              REMATCH ({formatEther(game.bet)} ETH)
+            </button>
           </motion.div>
         )}
 

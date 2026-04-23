@@ -1,19 +1,37 @@
-import { useState } from "react";
-import { useLocation, Link } from "wouter";
+import { useEffect, useState } from "react";
+import { useLocation, useSearch, Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, Hand, HandMetal, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateGame } from "@/hooks/useGameActions";
+import { useFeeBps } from "@/hooks/useGames";
 import { useWallet } from "@/lib/wallet";
 import { Move, type PlayableMove } from "@/lib/contract";
 import { Footer } from "@/components/Footer";
+import { FeeBreakdown } from "@/components/FeeBreakdown";
+import { parseEther } from "viem";
 
 export default function CreateGame() {
   const { isConnected, connect } = useWallet();
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [move, setMove] = useState<PlayableMove>(Move.Rock);
   const [bet, setBet] = useState("0.01");
   const { createGame, status, error } = useCreateGame();
+  const feeBps = useFeeBps();
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const presetBet = params.get("bet");
+    if (presetBet && /^\d*\.?\d+$/.test(presetBet)) {
+      setBet(presetBet);
+    }
+  }, [search]);
+
+  let betWei = 0n;
+  try {
+    if (bet && /^\d*\.?\d+$/.test(bet)) betWei = parseEther(bet);
+  } catch {}
 
   async function onSubmit() {
     try {
@@ -58,7 +76,7 @@ export default function CreateGame() {
             </button>
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="arcade-box p-6 md:p-8 space-y-8"
@@ -76,10 +94,10 @@ export default function CreateGame() {
                       key={m.value}
                       onClick={() => setMove(m.value as PlayableMove)}
                       className={`
-                        relative flex flex-col items-center justify-center p-4 md:p-6 gap-3 
+                        relative flex flex-col items-center justify-center p-4 md:p-6 gap-3
                         border-2 transition-all duration-200 min-h-[100px]
-                        ${isSelected 
-                          ? `bg-${m.border.replace('border-', '')}/20 ${m.border} shadow-[0_0_20px_var(--tw-shadow-color)] shadow-${m.border.replace('border-', '')}/50 scale-105` 
+                        ${isSelected
+                          ? `bg-${m.border.replace('border-', '')}/20 ${m.border} shadow-[0_0_20px_var(--tw-shadow-color)] shadow-${m.border.replace('border-', '')}/50 scale-105`
                           : 'border-border/50 hover:border-border hover:bg-background/50'}
                       `}
                       whileHover={{ scale: 1.05 }}
@@ -110,6 +128,7 @@ export default function CreateGame() {
                   ETH
                 </span>
               </div>
+              <FeeBreakdown bet={betWei} feeBps={feeBps} className="max-w-xs mx-auto" />
             </div>
 
             <div className="pt-4 flex flex-col items-center">
@@ -119,7 +138,7 @@ export default function CreateGame() {
                 className="arcade-btn px-8 py-4 w-full text-lg md:text-xl"
               >
                 {status === "submitting" ? "ENCRYPTING MOVE..." :
-                 status === "confirming" ? "AWAITING NETWORK..." : 
+                 status === "confirming" ? "AWAITING NETWORK..." :
                  "COMMIT & POST BET"}
               </button>
               {error && (

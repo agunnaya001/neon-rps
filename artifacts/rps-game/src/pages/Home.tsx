@@ -112,6 +112,9 @@ export default function Home() {
         <Link href="/leaderboard" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center">
           LEADERBOARD
         </Link>
+        <Link href="/treasury" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center !border-accent !text-accent hover:!bg-accent/20">
+          TREASURY
+        </Link>
       </div>
 
       {isConnected && (

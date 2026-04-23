@@ -29,24 +29,39 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ## Smart Contracts
 
 `lib/contracts/` is a Hardhat package (Solidity 0.8.24, ethers v6). It contains
-`CommitRevealRPS.sol` (v2), a two-player commit-reveal Rock-Paper-Scissors game:
+`CommitRevealRPS.sol` (v3), a two-player commit-reveal Rock-Paper-Scissors game:
 players post a `keccak256(abi.encode(player, move, salt))` commitment with a
-matching bet, then reveal their move + salt. Winner takes the pot; ties refund
-both players. Open games are tracked on-chain for listing.
+matching bet, then reveal their move + salt. Winner takes the pot (minus protocol
+fee); ties refund both players (no fee).
 
 v2 adds: `cancelGame` (creator can cancel before opponent joins), `claimByDefault`
 (after a 24h reveal timeout, the player who revealed claims the entire pot),
 `joinedAt` timestamp, `Cancelled` phase, `revealDeadline` view.
 
-Sepolia deployment (verified): `0x51f082B3ff0CAdFB7e06984c89523AE03B02162d`.
+v3 adds protocol monetization: `feeBps` (max 5%, settable by owner), `feeRecipient`,
+applied only on winning payouts and `claimByDefault` (NOT on ties or cancels).
+Ownable: `owner`, `transferOwnership`. Anyone may call `withdrawFees` — funds
+always route to `feeRecipient`. New views: `winnerPayout(id)`, `pendingFees()`,
+`totalFeesCollected`, `totalFeesWithdrawn`. New events: `FeeCollected`,
+`FeesWithdrawn`, `FeeBpsUpdated`, `FeeRecipientUpdated`. 26 Hardhat tests pass.
+
+**Sepolia deployment (v3, verified):** `0xEd992aD017878DdB67E7d431f53EaF862f034BA6`
+(feeRecipient = deployer wallet `0xFfb6505912FCE95B42be4860477201bb4e204E9f`,
+feeBps = 250 = 2.5%).
+Old v2 contract `0x51f082B3ff0CAdFB7e06984c89523AE03B02162d` is superseded.
 
 ## Frontend (artifacts/rps-game)
 
 React + Vite + wagmi + viem with arcade-neon UI. Pages: Home (lobby + your games
-+ scoreboard + activity feed), CreateGame, GameDetail (commit-reveal flow,
-share-to-X, cancel button, reveal countdown, claim-by-default), Leaderboard
-(all-time wins aggregated client-side from on-chain events). NetworkBanner
-prompts users to switch to Sepolia when on the wrong chain.
++ scoreboard + activity feed), CreateGame (with live fee/payout breakdown and
+`?bet=X` prefill for rematches), GameDetail (commit-reveal flow, share-to-X,
+cancel button, reveal countdown, claim-by-default, confetti on win, rematch
+button, fee breakdown), Leaderboard (all-time wins aggregated client-side from
+on-chain events), Treasury (public on-chain dashboard of `feeBps`, pending
+payout, lifetime collected/withdrawn, treasury wallet, anyone-can-trigger
+`withdrawFees`). NetworkBanner prompts users to switch to Sepolia when on the
+wrong chain. Wagmi config lists Sepolia as the default chain so reads work
+without a connected wallet.
 
 ## API Server (artifacts/api-server)
 

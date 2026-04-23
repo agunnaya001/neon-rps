@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title Commit-Reveal Rock-Paper-Scissors
+/// @title Commit-Reveal Rock-Paper-Scissors (v3)
 /// @notice A two-player RPS game that hides moves with keccak256 commitments
 ///         until both players have committed, preventing front-running.
+///         v3 adds a configurable protocol fee taken from the winning pot only
+///         (ties and cancellations are fee-free), routed to a treasury.
 contract CommitRevealRPS {
     enum Move {
         None,
@@ -38,19 +40,37 @@ contract CommitRevealRPS {
     ///         no-show can be slashed.
     uint256 public constant REVEAL_TIMEOUT = 24 hours;
 
+    /// @notice Hard cap on the protocol fee. Owner can never set above this.
+    uint16 public constant MAX_FEE_BPS = 500; // 5%
+
     uint256 public nextGameId;
     mapping(uint256 => Game) private games;
     uint256[] private openGameIds;
     mapping(uint256 => uint256) private openGameIndex;
     mapping(uint256 => bool) private isOpen;
 
+    // ----- Ownership / treasury -----
+    address public owner;
+    address public feeRecipient;
+    /// @notice Fee taken from the winning pot, in basis points (100 = 1%).
+    uint16 public feeBps;
+    /// @notice Total fees collected lifetime (running total, not balance).
+    uint256 public totalFeesCollected;
+    /// @notice Total fees withdrawn lifetime.
+    uint256 public totalFeesWithdrawn;
+
     event GameCreated(uint256 indexed gameId, address indexed player1, uint256 bet);
     event GameJoined(uint256 indexed gameId, address indexed player2, uint64 deadline);
     event GameCancelled(uint256 indexed gameId, address indexed player1, uint256 refund);
     event MoveRevealed(uint256 indexed gameId, address indexed player, Move move);
-    event GameResolved(uint256 indexed gameId, address indexed winner, uint256 payout);
+    event GameResolved(uint256 indexed gameId, address indexed winner, uint256 payout, uint256 fee);
     event GameTied(uint256 indexed gameId, uint256 refundEach);
-    event GameClaimedByDefault(uint256 indexed gameId, address indexed winner, uint256 payout);
+    event GameClaimedByDefault(uint256 indexed gameId, address indexed winner, uint256 payout, uint256 fee);
+    event FeeCollected(uint256 indexed gameId, uint256 amount);
+    event FeesWithdrawn(address indexed to, uint256 amount);
+    event FeeBpsUpdated(uint16 oldBps, uint16 newBps);
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+    event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
 
     error InvalidGame();
     error WrongPhase();
@@ -64,6 +84,26 @@ contract CommitRevealRPS {
     error DeadlineNotPassed();
     error AlreadyRevealedYourMove();
     error OpponentAlsoRevealed();
+    error NotOwner();
+    error FeeTooHigh();
+    error ZeroAddress();
+    error NothingToWithdraw();
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    constructor(address _feeRecipient, uint16 _feeBps) {
+        if (_feeRecipient == address(0)) revert ZeroAddress();
+        if (_feeBps > MAX_FEE_BPS) revert FeeTooHigh();
+        owner = msg.sender;
+        feeRecipient = _feeRecipient;
+        feeBps = _feeBps;
+        emit OwnershipTransferred(address(0), msg.sender);
+        emit FeeRecipientUpdated(address(0), _feeRecipient);
+        emit FeeBpsUpdated(0, _feeBps);
+    }
 
     /// @notice Create a new game with a hidden move and a bet.
     /// @param commitment keccak256(abi.encode(msg.sender, move, salt))
@@ -176,10 +216,15 @@ contract CommitRevealRPS {
         g.phase = Phase.Resolved;
         g.winner = msg.sender;
         uint256 pot = g.bet * 2;
-        if (pot > 0) {
-            _payout(msg.sender, pot);
+        (uint256 payout, uint256 fee) = _splitPot(pot);
+        if (payout > 0) {
+            _payout(msg.sender, payout);
         }
-        emit GameClaimedByDefault(gameId, msg.sender, pot);
+        if (fee > 0) {
+            totalFeesCollected += fee;
+            emit FeeCollected(gameId, fee);
+        }
+        emit GameClaimedByDefault(gameId, msg.sender, payout, fee);
     }
 
     function _resolve(uint256 gameId) internal {
@@ -198,11 +243,22 @@ contract CommitRevealRPS {
             g.phase = Phase.Resolved;
             g.winner = winner;
             uint256 pot = g.bet * 2;
-            if (pot > 0) {
-                _payout(winner, pot);
+            (uint256 payout, uint256 fee) = _splitPot(pot);
+            if (payout > 0) {
+                _payout(winner, payout);
             }
-            emit GameResolved(gameId, winner, pot);
+            if (fee > 0) {
+                totalFeesCollected += fee;
+                emit FeeCollected(gameId, fee);
+            }
+            emit GameResolved(gameId, winner, payout, fee);
         }
+    }
+
+    function _splitPot(uint256 pot) internal view returns (uint256 payout, uint256 fee) {
+        if (pot == 0 || feeBps == 0) return (pot, 0);
+        fee = (pot * feeBps) / 10_000;
+        payout = pot - fee;
     }
 
     function _winnerOf(Move m1, Move m2, address p1, address p2) internal pure returns (address) {
@@ -236,6 +292,36 @@ contract CommitRevealRPS {
         isOpen[gameId] = false;
     }
 
+    // ----- Owner / treasury controls -----
+
+    function setFeeBps(uint16 newBps) external onlyOwner {
+        if (newBps > MAX_FEE_BPS) revert FeeTooHigh();
+        emit FeeBpsUpdated(feeBps, newBps);
+        feeBps = newBps;
+    }
+
+    function setFeeRecipient(address newRecipient) external onlyOwner {
+        if (newRecipient == address(0)) revert ZeroAddress();
+        emit FeeRecipientUpdated(feeRecipient, newRecipient);
+        feeRecipient = newRecipient;
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddress();
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    /// @notice Withdraw the accrued protocol fees to the fee recipient.
+    ///         Anyone can call this — funds always go to feeRecipient.
+    function withdrawFees() external {
+        uint256 available = totalFeesCollected - totalFeesWithdrawn;
+        if (available == 0) revert NothingToWithdraw();
+        totalFeesWithdrawn += available;
+        _payout(feeRecipient, available);
+        emit FeesWithdrawn(feeRecipient, available);
+    }
+
     // ----- Views -----
 
     function getGame(uint256 gameId) external view returns (Game memory) {
@@ -256,6 +342,18 @@ contract CommitRevealRPS {
         Game storage g = games[gameId];
         if (g.phase != Phase.WaitingForReveals) return 0;
         return uint256(g.joinedAt) + REVEAL_TIMEOUT;
+    }
+
+    /// @notice The amount the winner of a given game would actually receive
+    ///         (pot minus the protocol fee at the time of resolution).
+    function winnerPayout(uint256 gameId) external view returns (uint256 payout, uint256 fee) {
+        Game storage g = games[gameId];
+        return _splitPot(g.bet * 2);
+    }
+
+    /// @notice Fees collected but not yet withdrawn.
+    function pendingFees() external view returns (uint256) {
+        return totalFeesCollected - totalFeesWithdrawn;
     }
 
     /// @notice Helper for off-chain code: computes the commitment the same way

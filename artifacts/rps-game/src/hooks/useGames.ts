@@ -146,3 +146,56 @@ export function useOpenGames(): { games: GameRecord[]; isLoading: boolean } {
   const ids = useOpenGameIds();
   return useGamesByIds(ids);
 }
+
+/** Reads the protocol fee in basis points (e.g. 250 = 2.5%). */
+export function useFeeBps(): number {
+  const { data } = useReadContract({
+    address: CONTRACT_ADDRESS ?? undefined,
+    abi: COMMIT_REVEAL_RPS_ABI,
+    functionName: "feeBps",
+    query: { enabled: !!CONTRACT_ADDRESS, staleTime: 60_000 },
+  });
+  return Number(data ?? 0);
+}
+
+export function useTreasuryStats(): {
+  totalCollected: bigint;
+  totalWithdrawn: bigint;
+  pending: bigint;
+  feeRecipient: `0x${string}` | null;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useReadContracts({
+    contracts: [
+      {
+        address: CONTRACT_ADDRESS ?? undefined,
+        abi: COMMIT_REVEAL_RPS_ABI,
+        functionName: "totalFeesCollected",
+      },
+      {
+        address: CONTRACT_ADDRESS ?? undefined,
+        abi: COMMIT_REVEAL_RPS_ABI,
+        functionName: "totalFeesWithdrawn",
+      },
+      {
+        address: CONTRACT_ADDRESS ?? undefined,
+        abi: COMMIT_REVEAL_RPS_ABI,
+        functionName: "pendingFees",
+      },
+      {
+        address: CONTRACT_ADDRESS ?? undefined,
+        abi: COMMIT_REVEAL_RPS_ABI,
+        functionName: "feeRecipient",
+      },
+    ] as never,
+    query: { enabled: !!CONTRACT_ADDRESS, refetchInterval: 10_000 },
+  });
+  const arr = data as Array<{ status: string; result?: unknown }> | undefined;
+  return {
+    totalCollected: (arr?.[0]?.result as bigint | undefined) ?? 0n,
+    totalWithdrawn: (arr?.[1]?.result as bigint | undefined) ?? 0n,
+    pending: (arr?.[2]?.result as bigint | undefined) ?? 0n,
+    feeRecipient: (arr?.[3]?.result as `0x${string}` | undefined) ?? null,
+    isLoading,
+  };
+}

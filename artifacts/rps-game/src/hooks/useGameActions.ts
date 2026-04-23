@@ -202,7 +202,7 @@ export function useClaimByDefault() {
   const { writeContractAsync } = useWriteContract();
   const tx = useTxStatus();
 
-  const claim = useCallback(
+  const claimByDefault = useCallback(
     async (gameId: bigint): Promise<void> => {
       ensureReady(address);
       if (!publicClient) throw new Error("Wallet client not ready");
@@ -227,7 +227,7 @@ export function useClaimByDefault() {
     },
     [address, publicClient, writeContractAsync, tx],
   );
-  return { claim, ...tx };
+  return { claimByDefault, ...tx };
 }
 
 export function useReveal() {

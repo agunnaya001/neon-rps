@@ -25,7 +25,7 @@ export function ParticleEffect({
 }: ParticleEffectProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!trigger || !canvasRef.current) return;
