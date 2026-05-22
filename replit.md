@@ -24,60 +24,87 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 - `pnpm --filter @workspace/contracts run compile` — compile Solidity contracts
-- `pnpm --filter @workspace/contracts run test` — run Hardhat tests
+- `pnpm --filter @workspace/contracts run test` — run Hardhat tests (58/58 passing)
 
 ## Smart Contracts
 
-`lib/contracts/` is a Hardhat package (Solidity 0.8.24, ethers v6). It contains
-`CommitRevealRPS.sol` (v3), a two-player commit-reveal Rock-Paper-Scissors game:
-players post a `keccak256(abi.encode(player, move, salt))` commitment with a
-matching bet, then reveal their move + salt. Winner takes the pot (minus protocol
-fee); ties refund both players (no fee).
+`lib/contracts/` is a Hardhat package (Solidity 0.8.24, ethers v6).
 
-v2 adds: `cancelGame` (creator can cancel before opponent joins), `claimByDefault`
-(after a 24h reveal timeout, the player who revealed claims the entire pot),
-`joinedAt` timestamp, `Cancelled` phase, `revealDeadline` view.
+### CommitRevealRPS (v3) — 26 tests
 
-v3 adds protocol monetization: `feeBps` (max 5%, settable by owner), `feeRecipient`,
-applied only on winning payouts and `claimByDefault` (NOT on ties or cancels).
-Ownable: `owner`, `transferOwnership`. Anyone may call `withdrawFees` — funds
-always route to `feeRecipient`. New views: `winnerPayout(id)`, `pendingFees()`,
-`totalFeesCollected`, `totalFeesWithdrawn`. New events: `FeeCollected`,
-`FeesWithdrawn`, `FeeBpsUpdated`, `FeeRecipientUpdated`. 26 Hardhat tests pass.
+Two-player commit-reveal RPS: players post `keccak256(abi.encode(player, move, salt))`
+commitments with matching bets, then reveal. Winner takes pot minus protocol fee;
+ties and cancels are fee-free. v2 adds `cancelGame`, `claimByDefault` (24h timeout),
+`joinedAt`, `Cancelled` phase. v3 adds `feeBps` (max 5%), `feeRecipient`, `Ownable`,
+`winnerPayout`, `pendingFees`, `totalFeesCollected/Withdrawn`.
 
-**Base mainnet deployment (v3, verified):** `0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD`
-(feeRecipient = deployer wallet `0xFfb6505912FCE95B42be4860477201bb4e204E9f`,
-feeBps = 250 = 2.5%). https://basescan.org/address/0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD#code
+**Base mainnet (v3, verified):** `0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD`
+feeRecipient = `0xFfb6505912FCE95B42be4860477201bb4e204E9f`, feeBps = 250 (2.5%)
+https://basescan.org/address/0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD#code
 
-**Sepolia deployment (v3, verified, superseded):** `0xEd992aD017878DdB67E7d431f53EaF862f034BA6`
+**Sepolia (v3, verified, superseded):** `0xEd992aD017878DdB67E7d431f53EaF862f034BA6`
 Old v2 contract `0x51f082B3ff0CAdFB7e06984c89523AE03B02162d` is superseded.
+
+### BestOfThreeRPS (v1) — 32 tests
+
+Two-player best-of-3 series using commit-reveal per round. Players stake once;
+first to 2 round-wins claims the pot minus 2.5% fee. Includes `cancelSeries`,
+`claimByDefault` (24h reveal timeout per round), `commitRound` (for rounds 2/3),
+`withdrawFees`, full fee/ownership controls matching CommitRevealRPS v3.
+
+**Base mainnet (v1, verified):** `0x053ac43369DE4B87987689d1cb352A15AB771c40`
+feeRecipient = `0xFfb6505912FCE95B42be4860477201bb4e204E9f`, feeBps = 250 (2.5%)
+https://basescan.org/address/0x053ac43369DE4B87987689d1cb352A15AB771c40#code
+
+**Deploy commands:**
+```bash
+# CommitRevealRPS — already live, no redeploy needed
+# BestOfThreeRPS
+cd lib/contracts && FEE_RECIPIENT=0xFfb6505912FCE95B42be4860477201bb4e204E9f FEE_BPS=250 DO_NOT_TRACK=1 npx hardhat run scripts/deploy-bot3.ts --network base
+```
 
 ## Frontend (artifacts/rps-game)
 
-React + Vite + wagmi + viem with arcade-neon UI. Pages: Home (lobby + your games
-+ scoreboard + activity feed), CreateGame (with live fee/payout breakdown and
-`?bet=X` prefill for rematches), GameDetail (commit-reveal flow, share-to-X,
-cancel button, reveal countdown, claim-by-default, confetti on win, rematch
-button, fee breakdown), Leaderboard (all-time wins aggregated client-side from
-on-chain events), Treasury (public on-chain dashboard of `feeBps`, pending
-payout, lifetime collected/withdrawn, treasury wallet, anyone-can-trigger
-`withdrawFees`). NetworkBanner prompts users to switch to Sepolia when on the
-wrong chain. Wagmi config lists Base as the default chain so reads work
-without a connected wallet. WalletModal supports both injected (MetaMask) and
-WalletConnect (Coinbase Wallet, Rainbow, Trust, etc.) for mobile users.
-InstallPrompt enables PWA install-to-home-screen on all devices. Full PWA
-manifest with 8 icon sizes (72–512px), app shortcuts, and screenshots.
+React + Vite + wagmi + viem with arcade-neon UI. All pages are lazy-loaded (React.lazy +
+Suspense). Vendor chunks split: react, web3, framer-motion, icons.
+
+Pages:
+- **Home** — lobby + your games (event-indexed) + open duels + activity feed + stats + streaks + achievements
+- **CreateGame** — move picker + live fee/payout breakdown + `?bet=X` rematch prefill
+- **GameDetail** — commit-reveal flow, cancel, reveal countdown, claim-by-default, confetti on win, share-to-X, rematch
+- **Leaderboard** — event-based (zero `getGame` calls), pure `GameCreated`/`GameResolved`/`GameTied` log scan
+- **Treasury** — public revenue dashboard: last 24h/7d/projected monthly, 7-day bar chart, withdrawFees trigger
+
+Performance: `useMyGames` and `useLeaderboardData` use on-chain events (O(events) not O(totalGames));
+`useRecentActivityIds` scans last ~3 days of `GameCreated` events.
+
+Wagmi: Base mainnet default chain (reads work without wallet). WalletConnect enabled only
+when `VITE_WALLETCONNECT_PROJECT_ID` is set to a valid 32-char projectId
+(get free at https://cloud.walletconnect.com). MetaMask/injected always works.
+
+PWA: 8 icon sizes (72–512px), 2 shortcuts (New Duel, Leaderboard), manifest, InstallPrompt.
 
 ## API Server (artifacts/api-server)
 
-Express server with two key endpoints used by the frontend's share button:
-- `GET /api/og/game/:id` — renders a 1200x630 PNG OpenGraph card for a match
-  (SVG composed server-side, rasterized via `@resvg/resvg-js`, reads game state
-  via `viem`)
-- `GET /api/share/g/:id` — HTML wrapper page with proper OG / Twitter meta tags
-  pointing at the OG image, JS-redirects browsers to the SPA `/game/:id`
+Express server:
+- `GET /api/og/game/:id` — 1200×630 PNG OpenGraph card (SVG → `@resvg/resvg-js`, reads chain via viem)
+- `GET /api/share/g/:id` — HTML with OG/Twitter meta tags, JS-redirects to `/game/:id`
 
-The `@resvg/*` package family is marked external in `build.mjs` because it
-ships native `.node` binaries that esbuild cannot bundle.
+`@resvg/*` is marked external in `build.mjs` (native `.node` binaries).
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## Environment Variables
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `VITE_CONTRACT_ADDRESS` | shared env | CommitRevealRPS mainnet address |
+| `VITE_CHAIN_ID` | shared env | Chain ID (8453 = Base) |
+| `VITE_WALLETCONNECT_PROJECT_ID` | shared env | WalletConnect v2 projectId — get free at cloud.walletconnect.com |
+| `DEPLOYER_PRIVATE_KEY` | secret | Hardhat deploy wallet private key |
+| `BASESCAN_API_KEY` | secret | BaseScan contract verification |
+| `SESSION_SECRET` | secret | Express session secret |
+
+## User Preferences
+
+- Never use `console.log` in server code — use `req.log` / `logger`
+- Always use `DO_NOT_TRACK=1` prefix when running `hardhat` commands (bypasses telemetry TTY prompt)
+- Hardhat test script already includes `DO_NOT_TRACK=1`
