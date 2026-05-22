@@ -5,6 +5,7 @@ Supervisor expects uvicorn on port 8001. This app:
 1. Launches the Node Express OG/share server on port 8002 as a subprocess
 2. Proxies all /api/* requests to it
 3. Exposes /api/health for liveness checks
+4. Implements /api/onramp/session — Coinbase Onramp session token + URL
 """
 
 import asyncio
@@ -15,8 +16,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+# Load .env BEFORE importing modules that read environment variables.
+load_dotenv(Path(__file__).parent / ".env")
+
+from onramp import (  # noqa: E402
+    OnrampSessionRequest,
+    OnrampSessionResponse,
+    create_onramp_session,
+)
 
 NODE_API_PORT = int(os.environ.get("NODE_API_PORT", "8002"))
 NODE_API_URL = f"http://127.0.0.1:{NODE_API_PORT}"
@@ -114,6 +125,12 @@ async def health():
     except Exception:
         node_ok = False
     return {"status": "ok", "service": "neon-rps-backend", "node_api": node_ok}
+
+
+@app.post("/api/onramp/session", response_model=OnrampSessionResponse)
+async def onramp_session(req: OnrampSessionRequest):
+    """Mint a Coinbase Onramp session URL for buying ETH on Base."""
+    return await create_onramp_session(req)
 
 
 @app.api_route(

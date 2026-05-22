@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 2 retest of Neon RPS dApp focused on the NEW features: Coinbase Onramp session endpoint, BUY BASE ETH UI on Home/Create/Footer, and the 404 GAME NOT FOUND fallback on /game/:id. Backend: 7/7 pytest checks PASS, including the new POST /api/onramp/session happy path (real Coinbase Developer Platform call returned a session token; URL starts with https://pay.coinbase.com/buy/select-asset?sessionToken= and contains defaultNetwork=base & defaultAsset=ETH). Both validation cases (missing wallet, bad eth address) return 422 as expected. Existing endpoints /api/healthz, /api/health (node_api=true), /api/og/game/1 (PNG), /api/share/g/1 (OG meta + refresh) still pass. Frontend: Home shows BUY BASE ETH button, /create shows WALLET REQUIRED panel + BUY BASE ETH, /game/1 now correctly renders the 404 GAME NOT FOUND state with [data-testid=game-not-found], RETURN TO LOBBY and START NEW DUEL buttons (the perpetual-loader bug from iteration 1 is fixed). /leaderboard and /treasury load. Footer also contains a buy-base-eth-btn (count=2 on home). Clicking BUY BASE ETH with no wallet does NOT crash the app.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_neon_rps_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/backend/onramp.py cleanly handles 32-byte and 64-byte Ed25519 key encodings, uses 120s JWT expiry, fresh nonce per request — correct CDP JWT auth implementation.",
+    "FastAPI /api/onramp/session is registered BEFORE the catch-all /api/{path:path} proxy, so it is served by FastAPI directly and not forwarded to Node — correct ordering.",
+    "OnrampSessionRequest validates wallet_address with regex ^0x[a-fA-F0-9]{40}$ via Pydantic — Field-level validation correctly yields 422 on bad/missing input.",
+    "Coinbase API errors are surfaced with status 502 and bounded detail (<=500 chars) which is good for debugging without leaking full payloads.",
+    "Onramp response model only exposes {url, expires_in} — session token only lives inside the URL parameters which is acceptable for a hosted-purchase flow (token is short-lived 5 min).",
+    "Frontend BuyBaseEthButton click without a wallet connected does not open the WalletConnect modal in our test — the button likely no-ops silently when no address is available. Consider explicitly calling openConnectModal() when isConnected=false so users understand why nothing happens. Not a crash, but UX could be clearer.",
+    "Console still shows several HTTP 413 (Payload Too Large) errors from external WalletConnect/relay endpoints — same as iteration 1, doesn't affect functionality."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_neon_rps_api.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A — wallet-based dApp. Test wallet 0xFfb6505912FCE95B42be4860477201bb4e204E9f (treasury, public) used for /api/onramp/session.",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_neon_rps_api.py now cover 7 cases including TestOnrampSession (happy path + 2 validation cases). The happy path makes a REAL outbound call to api.developer.coinbase.com so it depends on the CDP_API_KEY_NAME/SECRET in /app/backend/.env remaining valid. If Coinbase rotates/revokes the key, this test will start returning 502 from /api/onramp/session and the test will fail with a useful detail message. /game/:id now has a 404 fallback so iteration 1's perpetual-loader concern is resolved. Frontend served via Vite dev server through the preview URL — base URL https://5f994dc7-8c00-4d58-a02b-665468237121.preview.emergentagent.com.",
+  "rca of the issue": "N/A — no failures. Iteration 1 perpetual loader on /game/1 is resolved by the new GameDetail.tsx 404 branch (lines 159-191) which renders [data-testid=game-not-found] when isLoading=false && !game."
+}

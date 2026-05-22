@@ -38,6 +38,43 @@ class TestHealth:
         assert body.get("node_api") is True, body
 
 
+# ---------- Coinbase Onramp session ----------
+class TestOnrampSession:
+    TEST_WALLET = "0xFfb6505912FCE95B42be4860477201bb4e204E9f"
+
+    def test_onramp_session_happy_path(self, session):
+        r = session.post(
+            f"{BASE_URL}/api/onramp/session",
+            json={"wallet_address": self.TEST_WALLET},
+            timeout=30,
+        )
+        assert r.status_code == 200, f"got {r.status_code}: {r.text[:500]}"
+        body = r.json()
+        assert "url" in body, body
+        assert "expires_in" in body, body
+        assert isinstance(body["expires_in"], int)
+        url = body["url"]
+        assert url.startswith(
+            "https://pay.coinbase.com/buy/select-asset?sessionToken="
+        ), url
+        assert "defaultNetwork=base" in url, url
+        assert "defaultAsset=ETH" in url, url
+
+    def test_onramp_session_missing_wallet(self, session):
+        r = session.post(
+            f"{BASE_URL}/api/onramp/session", json={}, timeout=15
+        )
+        assert r.status_code == 422, f"expected 422, got {r.status_code}: {r.text[:300]}"
+
+    def test_onramp_session_invalid_wallet(self, session):
+        r = session.post(
+            f"{BASE_URL}/api/onramp/session",
+            json={"wallet_address": "not-an-eth-addr"},
+            timeout=15,
+        )
+        assert r.status_code == 422, f"expected 422, got {r.status_code}: {r.text[:300]}"
+
+
 # ---------- OG image endpoint ----------
 class TestOGImage:
     def test_og_image_returns_png(self, session):

@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "cd /app/artifacts/rps-game && PORT=${PORT:-3000} BASE_PATH=/ pnpm exec vite --host 0.0.0.0 --port ${PORT:-3000} --strictPort"
+    "start": "bash -c 'command -v pnpm >/dev/null 2>&1 || npm install -g pnpm@10 >/dev/null 2>&1; cd /app/artifacts/rps-game && PORT=${PORT:-3000} BASE_PATH=/ exec pnpm exec vite --host 0.0.0.0 --port ${PORT:-3000} --strictPort'"
   }
 }

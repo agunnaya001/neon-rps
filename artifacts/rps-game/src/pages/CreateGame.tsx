@@ -9,6 +9,7 @@ import { useWallet } from "@/lib/wallet";
 import { Move, type PlayableMove } from "@/lib/contract";
 import { Footer } from "@/components/Footer";
 import { FeeBreakdown } from "@/components/FeeBreakdown";
+import { BuyBaseEthButton } from "@/components/BuyBaseEthButton";
 import { parseEther } from "viem";
 
 export default function CreateGame() {
@@ -71,9 +72,17 @@ export default function CreateGame() {
         {!isConnected ? (
           <div className="arcade-box p-8 text-center space-y-4">
             <p className="font-mono text-lg">WALLET REQUIRED TO INITIATE SEQUENCE</p>
-            <button onClick={() => connect()} className="arcade-btn px-6 py-3">
+            <button onClick={() => connect()} className="arcade-btn px-6 py-3" data-testid="connect-wallet-btn">
               CONNECT WALLET
             </button>
+            <div className="pt-4 border-t border-primary/20">
+              <p className="font-mono text-[11px] text-muted-foreground mb-3 tracking-widest">
+                NO BASE ETH? FUND YOUR WALLET INSTANTLY ↓
+              </p>
+              <div className="flex justify-center">
+                <BuyBaseEthButton />
+              </div>
+            </div>
           </div>
         ) : (
           <motion.div

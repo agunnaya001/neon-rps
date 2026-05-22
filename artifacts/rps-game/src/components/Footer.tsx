@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { CONTRACT_ADDRESS, CHAIN_ID } from "@/lib/contract";
+import { BuyBaseEthButton } from "@/components/BuyBaseEthButton";
 
 const EXPLORER_BASE =
   CHAIN_ID === 8453
@@ -29,8 +30,10 @@ export function Footer() {
         </div>
       )}
       {CHAIN_ID === 8453 && (
-        <div className="font-mono text-xs text-muted-foreground">
-          Need Base ETH?{" "}
+        <div className="font-mono text-xs text-muted-foreground flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+          <span>Need Base ETH?</span>
+          <BuyBaseEthButton variant="ghost" />
+          <span className="opacity-60">·</span>
           <a
             href="https://bridge.base.org"
             target="_blank"
@@ -39,7 +42,7 @@ export function Footer() {
           >
             Bridge ↗
           </a>
-          {" · "}
+          <span className="opacity-60">·</span>
           <a
             href="https://www.coinbase.com/wallet"
             target="_blank"

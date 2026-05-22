@@ -12,6 +12,7 @@ import { PlayerStats } from "@/components/PlayerStats";
 import { GameHistory } from "@/components/GameHistory";
 import { Achievements } from "@/components/Achievements";
 import { WinStreak } from "@/components/WinStreak";
+import { BuyBaseEthButton } from "@/components/BuyBaseEthButton";
 import { calculateStreaks } from "@/lib/streak-utils";
 
 export default function Home() {
@@ -105,16 +106,20 @@ export default function Home() {
       )}
 
       <div className="mb-12 flex flex-col sm:flex-row justify-center gap-4">
-        <Link href="/create" className="arcade-btn px-8 py-4 text-xl flex items-center gap-3 justify-center">
+        <Link href="/create" className="arcade-btn px-8 py-4 text-xl flex items-center gap-3 justify-center" data-testid="home-start-duel-btn">
           <Swords className="w-6 h-6" />
           START NEW DUEL
         </Link>
-        <Link href="/leaderboard" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center">
+        <Link href="/leaderboard" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center" data-testid="home-leaderboard-btn">
           LEADERBOARD
         </Link>
-        <Link href="/treasury" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center !border-accent !text-accent hover:!bg-accent/20">
+        <Link href="/treasury" className="arcade-btn arcade-btn-secondary px-6 py-4 text-base flex items-center gap-3 justify-center !border-accent !text-accent hover:!bg-accent/20" data-testid="home-treasury-btn">
           TREASURY
         </Link>
+      </div>
+
+      <div className="mb-10 flex justify-center">
+        <BuyBaseEthButton />
       </div>
 
       {isConnected && (
