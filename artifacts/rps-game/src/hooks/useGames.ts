@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { useAccount, useReadContract, useReadContracts } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { useAccount, usePublicClient, useReadContract, useReadContracts } from "wagmi";
+import { parseAbiItem } from "viem";
 import { CONTRACT_ADDRESS, COMMIT_REVEAL_RPS_ABI, type PhaseValue } from "@/lib/contract";
 
 export type GameRecord = {
@@ -156,6 +157,98 @@ export function useFeeBps(): number {
     query: { enabled: !!CONTRACT_ADDRESS, staleTime: 60_000 },
   });
   return Number(data ?? 0);
+}
+
+const FEE_COLLECTED_EVENT = parseAbiItem(
+  "event FeeCollected(uint256 indexed gameId, uint256 amount)",
+);
+
+const BASE_BLOCK_TIME_S = 2;
+const BLOCKS_PER_DAY = Math.floor((86400 / BASE_BLOCK_TIME_S));
+const BLOCKS_PER_WEEK = BLOCKS_PER_DAY * 7;
+
+export type DailyRevenue = { label: string; eth: number; wei: bigint };
+
+export function useRevenueAnalytics(): {
+  earned24h: bigint;
+  earned7d: bigint;
+  dailyBars: DailyRevenue[];
+  isLoading: boolean;
+} {
+  const client = usePublicClient();
+  const [data, setData] = useState<{
+    earned24h: bigint;
+    earned7d: bigint;
+    dailyBars: DailyRevenue[];
+  }>({ earned24h: 0n, earned7d: 0n, dailyBars: [] });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!client || !CONTRACT_ADDRESS) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const latest = await client.getBlockNumber();
+        const fromBlock = latest > BigInt(BLOCKS_PER_WEEK)
+          ? latest - BigInt(BLOCKS_PER_WEEK)
+          : 0n;
+
+        const logs = await client.getLogs({
+          address: CONTRACT_ADDRESS,
+          event: FEE_COLLECTED_EVENT,
+          fromBlock,
+          toBlock: "latest",
+        });
+
+        if (cancelled) return;
+
+        const now = Date.now();
+        const msPerBlock = BASE_BLOCK_TIME_S * 1000;
+        const cutoff24h = latest - BigInt(BLOCKS_PER_DAY);
+
+        let earned24h = 0n;
+        let earned7d = 0n;
+        const dayMap = new Map<string, bigint>();
+
+        for (const log of logs) {
+          const amount = (log.args as { amount?: bigint }).amount ?? 0n;
+          earned7d += amount;
+          if (log.blockNumber && log.blockNumber >= cutoff24h) {
+            earned24h += amount;
+          }
+          if (log.blockNumber) {
+            const approxMs =
+              now - Number(latest - log.blockNumber) * msPerBlock;
+            const date = new Date(approxMs);
+            const key = `${date.getMonth() + 1}/${date.getDate()}`;
+            dayMap.set(key, (dayMap.get(key) ?? 0n) + amount);
+          }
+        }
+
+        const dailyBars: DailyRevenue[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now - i * 86400_000);
+          const key = `${d.getMonth() + 1}/${d.getDate()}`;
+          const wei = dayMap.get(key) ?? 0n;
+          dailyBars.push({
+            label: key,
+            eth: Number(wei) / 1e18,
+            wei,
+          });
+        }
+
+        if (!cancelled) {
+          setData({ earned24h, earned7d, dailyBars });
+        }
+      } catch {
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
+
+  return { ...data, isLoading };
 }
 
 export function useTreasuryStats(): {
