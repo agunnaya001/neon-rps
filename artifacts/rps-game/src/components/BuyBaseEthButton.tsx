@@ -14,7 +14,12 @@ export function BuyBaseEthButton({ variant = "primary", className = "" }: Props)
 
   const handleClick = async () => {
     if (!isConnected || !address) {
-      connect();
+      try {
+        await connect();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Connect your wallet first";
+        toast.error(msg);
+      }
       return;
     }
     setLoading(true);
