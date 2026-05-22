@@ -101,7 +101,13 @@ export default function CreateGame() {
                   return (
                     <motion.button
                       key={m.value}
-                      onClick={() => setMove(m.value as PlayableMove)}
+                      data-testid={`move-${m.label.toLowerCase()}-btn`}
+                      onClick={() => {
+                        setMove(m.value as PlayableMove);
+                        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+                          navigator.vibrate?.(15);
+                        }
+                      }}
                       className={`
                         relative flex flex-col items-center justify-center p-4 md:p-6 gap-3
                         border-2 transition-all duration-200 min-h-[100px]

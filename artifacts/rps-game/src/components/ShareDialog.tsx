@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Share2, Copy, Twitter, Mail, Link2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useWallet } from "@/lib/wallet";
+import { withReferral } from "@/lib/referral";
 
 interface ShareDialogProps {
   gameId: string | bigint;
@@ -11,14 +13,19 @@ interface ShareDialogProps {
 
 export function ShareDialog({ gameId, bet = "0.01" }: ShareDialogProps) {
   const [copied, setCopied] = useState(false);
+  const { address } = useWallet();
 
-  const shareUrl = `${window.location.origin}/game/${gameId.toString()}`;
+  const shareUrl = withReferral(
+    `${window.location.origin}/game/${gameId.toString()}`,
+    address,
+  );
   const shareText = `Just put ${bet} ETH on the line in a Rock-Paper-Scissors duel. Think you can read me? #Web3Gaming`;
 
   const copyInvite = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
+      if ("vibrate" in navigator) navigator.vibrate?.(30);
       toast.success("Invite link copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -28,7 +35,7 @@ export function ShareDialog({ gameId, bet = "0.01" }: ShareDialogProps) {
 
   const shareToX = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-    window.open(url, "_blank", "width=550,height=420");
+    window.open(url, "_blank", "width=550,height=420,noopener,noreferrer");
   };
 
   const shareViaEmail = () => {
@@ -36,6 +43,21 @@ export function ShareDialog({ gameId, bet = "0.01" }: ShareDialogProps) {
     const body = `${shareText}\n\nJoin here: ${shareUrl}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
+
+  const shareNative = async () => {
+    if (!("share" in navigator)) {
+      copyInvite();
+      return;
+    }
+    try {
+      await navigator.share({ title: "Neon RPS Duel", text: shareText, url: shareUrl });
+      if ("vibrate" in navigator) navigator.vibrate?.(20);
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") toast.error("Share failed");
+    }
+  };
+
+  const supportsNativeShare = typeof navigator !== "undefined" && "share" in navigator;
 
   const shareOptions = [
     {
@@ -50,12 +72,19 @@ export function ShareDialog({ gameId, bet = "0.01" }: ShareDialogProps) {
       action: shareToX,
       color: "text-blue-400",
     },
-    {
-      icon: Mail,
-      label: "Email",
-      action: shareViaEmail,
-      color: "text-amber-500",
-    },
+    supportsNativeShare
+      ? {
+          icon: Share2,
+          label: "More…",
+          action: shareNative,
+          color: "text-accent",
+        }
+      : {
+          icon: Mail,
+          label: "Email",
+          action: shareViaEmail,
+          color: "text-amber-500",
+        },
   ];
 
   return (

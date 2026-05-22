@@ -13,6 +13,7 @@ import { GameHistory } from "@/components/GameHistory";
 import { Achievements } from "@/components/Achievements";
 import { WinStreak } from "@/components/WinStreak";
 import { BuyBaseEthButton } from "@/components/BuyBaseEthButton";
+import { ReferralPanel } from "@/components/ReferralPanel";
 import { calculateStreaks } from "@/lib/streak-utils";
 
 export default function Home() {
@@ -118,8 +119,9 @@ export default function Home() {
         </Link>
       </div>
 
-      <div className="mb-10 flex justify-center">
+      <div className="mb-10 flex flex-col items-center gap-4">
         <BuyBaseEthButton />
+        <ReferralPanel />
       </div>
 
       {isConnected && (
