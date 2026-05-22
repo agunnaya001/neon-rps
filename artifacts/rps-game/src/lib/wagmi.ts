@@ -23,7 +23,7 @@ export const wagmiConfig = createConfig({
             metadata: {
               name: "Neon RPS",
               description: "On-chain commit-reveal Rock Paper Scissors on Base",
-              url: "https://neonrps.replit.app",
+              url: "https://neonrps.xyz",
               icons: ["/logo.png"],
             },
           }),
