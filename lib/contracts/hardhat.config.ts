@@ -3,8 +3,12 @@ import "@nomicfoundation/hardhat-toolbox";
 
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY ?? "";
+const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY ?? "";
+
 const SEPOLIA_RPC_URL =
   process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
+const BASE_RPC_URL =
+  process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
 
 const accounts = DEPLOYER_PRIVATE_KEY
   ? [
@@ -33,9 +37,28 @@ const config: HardhatUserConfig = {
       chainId: 11155111,
       accounts,
     },
+    base: {
+      url: BASE_RPC_URL,
+      chainId: 8453,
+      accounts,
+    },
   },
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY,
+    apiKey: {
+      mainnet: ETHERSCAN_API_KEY,
+      sepolia: ETHERSCAN_API_KEY,
+      base: BASESCAN_API_KEY,
+    },
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org",
+        },
+      },
+    ],
   },
 };
 
