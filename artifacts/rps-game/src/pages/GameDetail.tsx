@@ -157,13 +157,35 @@ export default function GameDetail() {
   };
 
   if (!id) return <div className="p-8 font-mono text-destructive text-center mt-20">INVALID GAME ID</div>;
-  if (isLoading || !game) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full">
+  if (isLoading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full" data-testid="game-loading">
       <div className="animate-pulse font-mono text-xl text-primary tracking-widest mb-8">LOADING NEURAL LINK...</div>
       <div className="w-full h-2 bg-primary/20 rounded overflow-hidden">
         <div className="h-full bg-primary w-1/3 animate-[slide_2s_infinite]"></div>
       </div>
       <style>{`@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }`}</style>
+    </div>
+  );
+  if (!game) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full text-center" data-testid="game-not-found">
+      <div className="font-mono text-6xl md:text-7xl font-bold text-primary tracking-widest mb-6" style={{ textShadow: "0 0 24px currentColor" }}>404</div>
+      <div className="font-mono text-2xl text-foreground tracking-widest mb-3">GAME NOT FOUND</div>
+      <div className="font-mono text-sm text-muted-foreground mb-10 max-w-md">
+        No duel with id <span className="text-accent">#{id.toString()}</span> exists on-chain yet.
+        It may have been cancelled, never created, or you mistyped the URL.
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Link href="/">
+          <button data-testid="back-to-lobby-btn" className="arcade-box px-6 py-3 font-mono text-sm tracking-widest hover:bg-primary/10 transition-colors">
+            ← RETURN TO LOBBY
+          </button>
+        </Link>
+        <Link href="/create">
+          <button data-testid="start-new-duel-btn" className="arcade-box px-6 py-3 font-mono text-sm tracking-widest text-accent hover:bg-accent/10 transition-colors" style={{ borderColor: "hsl(var(--accent))" }}>
+            START NEW DUEL →
+          </button>
+        </Link>
+      </div>
     </div>
   );
 
