@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Swords, Wallet, LogOut, Info, Activity, Flame } from "lucide-react";
-import { useMyGames, useOpenGames, useAllGames } from "@/hooks/useGames";
+import { useMyGames, useOpenGames, useGamesByIds, useRecentActivityIds } from "@/hooks/useGames";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { CONTRACT_ADDRESS } from "@/lib/contract";
 import { WalletModal } from "@/components/WalletModal";
@@ -19,13 +19,14 @@ export default function Home() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { games: myGames, isLoading: loadingMine } = useMyGames();
   const { games: openGames, isLoading: loadingOpen } = useOpenGames();
-  const { games: allGames, isLoading: loadingAll } = useAllGames();
+  const { ids: recentIds, isLoading: loadingRecentIds } = useRecentActivityIds(10);
+  const { games: recentGames, isLoading: loadingRecentGames } = useGamesByIds(recentIds);
+  const loadingRecent = loadingRecentIds || loadingRecentGames;
 
   const { wins, losses, ties } = useMemo(() => {
     if (!address) return { wins: 0, losses: 0, ties: 0 };
     const me = address.toLowerCase();
-    const resolved = allGames.filter(g => g.phase >= 3 && (g.player1.toLowerCase() === me || g.player2.toLowerCase() === me));
-    
+    const resolved = myGames.filter(g => g.phase >= 3);
     let w = 0, l = 0, t = 0;
     resolved.forEach(g => {
       if (g.phase === 4) t++;
@@ -33,15 +34,11 @@ export default function Home() {
       else l++;
     });
     return { wins: w, losses: l, ties: t };
-  }, [allGames, address]);
+  }, [myGames, address]);
 
   const { currentStreak, bestStreak } = useMemo(() => {
-    return calculateStreaks(allGames, address);
-  }, [allGames, address]);
-
-  const recentGames = useMemo(() => {
-    return [...allGames].sort((a, b) => Number(b.id - a.id)).slice(0, 5);
-  }, [allGames]);
+    return calculateStreaks(myGames, address);
+  }, [myGames, address]);
 
   const container = {
     hidden: { opacity: 0 },
@@ -261,19 +258,26 @@ export default function Home() {
             <Activity className="w-5 h-5 text-muted-foreground" />
             <h2 className="text-lg font-bold arcade-text text-muted-foreground">NETWORK ACTIVITY</h2>
           </div>
-          <GameHistory 
-            games={recentGames.map(g => ({
-              id: g.id,
-              player1: g.player1,
-              player2: g.player2,
-              winner: g.winner,
-              move1: g.move1,
-              move2: g.move2,
-              bet: g.bet,
-              phase: g.phase,
-            }))} 
-            limit={5}
-          />
+          {loadingRecent ? (
+            <div className="space-y-4">
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
+          ) : (
+            <GameHistory 
+              games={recentGames.map(g => ({
+                id: g.id,
+                player1: g.player1,
+                player2: g.player2,
+                winner: g.winner,
+                move1: g.move1,
+                move2: g.move2,
+                bet: g.bet,
+                phase: g.phase,
+              }))} 
+              limit={5}
+            />
+          )}
         </section>
       </div>
 

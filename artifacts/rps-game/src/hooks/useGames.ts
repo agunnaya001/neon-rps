@@ -131,16 +131,9 @@ export function useAllGames(): { games: GameRecord[]; isLoading: boolean } {
 
 export function useMyGames(): { games: GameRecord[]; isLoading: boolean } {
   const { address } = useAccount();
-  const { games, isLoading } = useAllGames();
-  const mine = useMemo(() => {
-    if (!address) return [];
-    const me = address.toLowerCase();
-    return games.filter(
-      (g) =>
-        g.player1.toLowerCase() === me || g.player2.toLowerCase() === me,
-    );
-  }, [games, address]);
-  return { games: mine, isLoading };
+  const { ids, isLoading: loadingIds } = useMyGameIdsFromEvents(address);
+  const { games, isLoading: loadingGames } = useGamesByIds(ids);
+  return { games, isLoading: loadingIds || loadingGames };
 }
 
 export function useOpenGames(): { games: GameRecord[]; isLoading: boolean } {
@@ -291,4 +284,182 @@ export function useTreasuryStats(): {
     feeRecipient: (arr?.[3]?.result as `0x${string}` | undefined) ?? null,
     isLoading,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event-based hooks — O(events) not O(totalGameCount)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GAME_CREATED_EVENT = parseAbiItem(
+  "event GameCreated(uint256 indexed gameId, address indexed player1, uint256 bet)",
+);
+const GAME_JOINED_EVENT = parseAbiItem(
+  "event GameJoined(uint256 indexed gameId, address indexed player2, uint64 deadline)",
+);
+const GAME_RESOLVED_EVENT = parseAbiItem(
+  "event GameResolved(uint256 indexed gameId, address indexed winner, uint256 payout, uint256 fee)",
+);
+const GAME_TIED_EVENT = parseAbiItem(
+  "event GameTied(uint256 indexed gameId, uint256 refundEach)",
+);
+
+export type LeaderboardRow = {
+  address: `0x${string}`;
+  wins: number;
+  losses: number;
+  ties: number;
+  totalWagered: bigint;
+  netProfit: bigint;
+};
+
+/** Builds the leaderboard entirely from on-chain events — no getGame calls. */
+export function useLeaderboardData(): { rows: LeaderboardRow[]; isLoading: boolean } {
+  const client = usePublicClient();
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!client || !CONTRACT_ADDRESS) { setIsLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [createdLogs, joinedLogs, resolvedLogs, tiedLogs] = await Promise.all([
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_CREATED_EVENT, fromBlock: 0n, toBlock: "latest" }),
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_JOINED_EVENT, fromBlock: 0n, toBlock: "latest" }),
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_RESOLVED_EVENT, fromBlock: 0n, toBlock: "latest" }),
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_TIED_EVENT, fromBlock: 0n, toBlock: "latest" }),
+        ]);
+        if (cancelled) return;
+
+        type GameInfo = { player1: `0x${string}`; player2?: `0x${string}`; bet: bigint };
+        const gameMap = new Map<string, GameInfo>();
+
+        for (const log of createdLogs) {
+          const a = log.args as { gameId?: bigint; player1?: `0x${string}`; bet?: bigint };
+          if (a.gameId !== undefined && a.player1 && a.bet !== undefined)
+            gameMap.set(a.gameId.toString(), { player1: a.player1, bet: a.bet });
+        }
+        for (const log of joinedLogs) {
+          const a = log.args as { gameId?: bigint; player2?: `0x${string}` };
+          if (a.gameId !== undefined && a.player2) {
+            const g = gameMap.get(a.gameId.toString());
+            if (g) g.player2 = a.player2;
+          }
+        }
+
+        const lb = new Map<string, LeaderboardRow>();
+        const ensure = (addr: `0x${string}`): LeaderboardRow => {
+          const k = addr.toLowerCase();
+          let r = lb.get(k);
+          if (!r) { r = { address: addr, wins: 0, losses: 0, ties: 0, totalWagered: 0n, netProfit: 0n }; lb.set(k, r); }
+          return r;
+        };
+
+        for (const log of resolvedLogs) {
+          const a = log.args as { gameId?: bigint; winner?: `0x${string}`; payout?: bigint; fee?: bigint };
+          if (!a.gameId || !a.winner) continue;
+          const game = gameMap.get(a.gameId.toString());
+          if (!game) continue;
+          const payout = a.payout ?? 0n;
+          const fee = a.fee ?? 0n;
+          const bet = (payout + fee) / 2n;
+          const loser: `0x${string}` =
+            a.winner.toLowerCase() === game.player1.toLowerCase()
+              ? (game.player2 ?? a.winner) : game.player1;
+          const w = ensure(a.winner);
+          w.wins++; w.totalWagered += bet; w.netProfit += payout - bet;
+          const l = ensure(loser);
+          l.losses++; l.totalWagered += bet; l.netProfit -= bet;
+        }
+
+        for (const log of tiedLogs) {
+          const a = log.args as { gameId?: bigint };
+          if (!a.gameId) continue;
+          const game = gameMap.get(a.gameId.toString());
+          if (!game) continue;
+          const p1 = ensure(game.player1);
+          p1.ties++; p1.totalWagered += game.bet;
+          if (game.player2) {
+            const p2 = ensure(game.player2);
+            p2.ties++; p2.totalWagered += game.bet;
+          }
+        }
+
+        if (!cancelled)
+          setRows(
+            Array.from(lb.values())
+              .filter(r => r.wins + r.losses + r.ties > 0)
+              .sort((a, b) => b.wins - a.wins || Number(b.netProfit - a.netProfit)),
+          );
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
+
+  return { rows, isLoading };
+}
+
+/** Finds all game IDs involving `address` via indexed events. */
+export function useMyGameIdsFromEvents(address: `0x${string}` | undefined): {
+  ids: bigint[];
+  isLoading: boolean;
+} {
+  const client = usePublicClient();
+  const [ids, setIds] = useState<bigint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!client || !CONTRACT_ADDRESS || !address) { setIsLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [created, joined] = await Promise.all([
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_CREATED_EVENT, args: { player1: address }, fromBlock: 0n, toBlock: "latest" }),
+          client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_JOINED_EVENT, args: { player2: address }, fromBlock: 0n, toBlock: "latest" }),
+        ]);
+        if (cancelled) return;
+        const idSet = new Set<bigint>();
+        for (const log of [...created, ...joined]) {
+          const a = log.args as { gameId?: bigint };
+          if (a.gameId !== undefined) idSet.add(a.gameId);
+        }
+        setIds(Array.from(idSet).sort((a, b) => Number(b - a)));
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [client, address]);
+
+  return { ids, isLoading };
+}
+
+/** Returns recent game IDs for the activity feed (most recent first). */
+export function useRecentActivityIds(limit = 15): { ids: bigint[]; isLoading: boolean } {
+  const client = usePublicClient();
+  const [ids, setIds] = useState<bigint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!client || !CONTRACT_ADDRESS) { setIsLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const latest = await client.getBlockNumber();
+        const fromBlock = latest > 129_600n ? latest - 129_600n : 0n; // ~3 days on Base (2s blocks)
+        const logs = await client.getLogs({ address: CONTRACT_ADDRESS, event: GAME_CREATED_EVENT, fromBlock, toBlock: "latest" });
+        if (cancelled) return;
+        const recent = [...logs]
+          .sort((a, b) => Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n)))
+          .slice(0, limit)
+          .map(l => (l.args as { gameId?: bigint }).gameId)
+          .filter((id): id is bigint => id !== undefined);
+        setIds(recent);
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [client, limit]);
+
+  return { ids, isLoading };
 }

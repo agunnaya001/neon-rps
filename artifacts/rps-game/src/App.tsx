@@ -1,26 +1,40 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProviders } from "@/lib/providers";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/Home";
-import CreateGame from "@/pages/CreateGame";
-import GameDetail from "@/pages/GameDetail";
-import Leaderboard from "@/pages/Leaderboard";
-import Treasury from "@/pages/Treasury";
+
+const Home = lazy(() => import("@/pages/Home"));
+const CreateGame = lazy(() => import("@/pages/CreateGame"));
+const GameDetail = lazy(() => import("@/pages/GameDetail"));
+const Leaderboard = lazy(() => import("@/pages/Leaderboard"));
+const Treasury = lazy(() => import("@/pages/Treasury"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+function PageSkeleton() {
+  return (
+    <div className="min-h-[100dvh] flex items-center justify-center">
+      <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground animate-pulse">
+        Loading…
+      </div>
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/create" component={CreateGame} />
-      <Route path="/leaderboard" component={Leaderboard} />
-      <Route path="/treasury" component={Treasury} />
-      <Route path="/game/:id" component={GameDetail} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageSkeleton />}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/create" component={CreateGame} />
+        <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/treasury" component={Treasury} />
+        <Route path="/game/:id" component={GameDetail} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

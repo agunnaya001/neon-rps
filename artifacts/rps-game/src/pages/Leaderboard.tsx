@@ -1,84 +1,14 @@
-import { useMemo } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Trophy, Crown } from "lucide-react";
 import { formatEther } from "viem";
 import { motion } from "framer-motion";
-import { useAllGames } from "@/hooks/useGames";
+import { useLeaderboardData } from "@/hooks/useGames";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { Footer } from "@/components/Footer";
 
-type Row = {
-  address: `0x${string}`;
-  wins: number;
-  losses: number;
-  ties: number;
-  totalWagered: bigint;
-  netProfit: bigint;
-};
-
 export default function Leaderboard() {
-  const { games, isLoading } = useAllGames();
+  const { rows, isLoading } = useLeaderboardData();
   const { address } = useWallet();
-
-  const rows = useMemo<Row[]>(() => {
-    const map = new Map<string, Row>();
-    const ensure = (addr: `0x${string}`): Row => {
-      const k = addr.toLowerCase();
-      let row = map.get(k);
-      if (!row) {
-        row = {
-          address: addr,
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          totalWagered: 0n,
-          netProfit: 0n,
-        };
-        map.set(k, row);
-      }
-      return row;
-    };
-
-    for (const g of games) {
-      const isP1 = g.player1 !== "0x0000000000000000000000000000000000000000";
-      const isP2 = g.player2 !== "0x0000000000000000000000000000000000000000";
-      if (isP1) {
-        const r = ensure(g.player1);
-        if (g.phase === 2 || g.phase === 3 || g.phase === 4) r.totalWagered += g.bet;
-      }
-      if (isP2) {
-        const r = ensure(g.player2);
-        if (g.phase === 2 || g.phase === 3 || g.phase === 4) r.totalWagered += g.bet;
-      }
-
-      // Resolved with winner
-      if (g.phase === 3 && g.winner !== "0x0000000000000000000000000000000000000000") {
-        const winner = ensure(g.winner);
-        winner.wins += 1;
-        winner.netProfit += g.bet;
-        const loserAddr =
-          g.winner.toLowerCase() === g.player1.toLowerCase() ? g.player2 : g.player1;
-        if (loserAddr !== "0x0000000000000000000000000000000000000000") {
-          const loser = ensure(loserAddr);
-          loser.losses += 1;
-          loser.netProfit -= g.bet;
-        }
-      }
-      // Tie
-      if (g.phase === 4) {
-        if (isP1) ensure(g.player1).ties += 1;
-        if (isP2) ensure(g.player2).ties += 1;
-      }
-    }
-
-    return Array.from(map.values())
-      .filter((r) => r.wins + r.losses + r.ties > 0)
-      .sort((a, b) => {
-        if (b.wins !== a.wins) return b.wins - a.wins;
-        return Number(b.netProfit - a.netProfit);
-      });
-  }, [games]);
-
   const me = address?.toLowerCase();
 
   return (

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "DO_NOT_TRACK=1 hardhat test",
     "clean": "hardhat clean",
     "node": "hardhat node",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
