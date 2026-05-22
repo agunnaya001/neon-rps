@@ -34,3 +34,10 @@ externalPort = 3002
 [[ports]]
 localPort = 24066
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+VITE_CONTRACT_ADDRESS = "0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD"
+VITE_CHAIN_ID = "8453"
+VITE_CHAIN_NAME = "base"

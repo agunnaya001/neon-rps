@@ -1,16 +1,21 @@
 import { useCallback } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
-/** Convenience helper: connect to MetaMask / any injected wallet. */
 export function useWallet() {
   const { address, isConnected, status, chainId } = useAccount();
   const { connectors, connectAsync, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
 
   const connect = useCallback(async () => {
-    const injected = connectors[0];
-    if (!injected) throw new Error("No injected wallet detected");
+    const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    if (!injected) throw new Error("No wallet detected. Install MetaMask or use a Web3 browser.");
     await connectAsync({ connector: injected });
+  }, [connectors, connectAsync]);
+
+  const connectWalletConnect = useCallback(async () => {
+    const wc = connectors.find((c) => c.id === "walletConnect");
+    if (!wc) throw new Error("WalletConnect not available");
+    await connectAsync({ connector: wc });
   }, [connectors, connectAsync]);
 
   return {
@@ -20,7 +25,9 @@ export function useWallet() {
     chainId,
     isConnecting,
     connect,
+    connectWalletConnect,
     disconnect,
+    connectors,
   };
 }
 

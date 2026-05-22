@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProviders } from "@/lib/providers";
 import { NetworkBanner } from "@/components/NetworkBanner";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import CreateGame from "@/pages/CreateGame";
@@ -32,6 +33,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster theme="dark" toastOptions={{ className: 'arcade-box font-mono !border-primary' }} />
+        <InstallPrompt />
       </TooltipProvider>
     </AppProviders>
   );

@@ -45,9 +45,11 @@ always route to `feeRecipient`. New views: `winnerPayout(id)`, `pendingFees()`,
 `totalFeesCollected`, `totalFeesWithdrawn`. New events: `FeeCollected`,
 `FeesWithdrawn`, `FeeBpsUpdated`, `FeeRecipientUpdated`. 26 Hardhat tests pass.
 
-**Sepolia deployment (v3, verified):** `0xEd992aD017878DdB67E7d431f53EaF862f034BA6`
+**Base mainnet deployment (v3, verified):** `0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD`
 (feeRecipient = deployer wallet `0xFfb6505912FCE95B42be4860477201bb4e204E9f`,
-feeBps = 250 = 2.5%).
+feeBps = 250 = 2.5%). https://basescan.org/address/0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD#code
+
+**Sepolia deployment (v3, verified, superseded):** `0xEd992aD017878DdB67E7d431f53EaF862f034BA6`
 Old v2 contract `0x51f082B3ff0CAdFB7e06984c89523AE03B02162d` is superseded.
 
 ## Frontend (artifacts/rps-game)
@@ -60,8 +62,11 @@ button, fee breakdown), Leaderboard (all-time wins aggregated client-side from
 on-chain events), Treasury (public on-chain dashboard of `feeBps`, pending
 payout, lifetime collected/withdrawn, treasury wallet, anyone-can-trigger
 `withdrawFees`). NetworkBanner prompts users to switch to Sepolia when on the
-wrong chain. Wagmi config lists Sepolia as the default chain so reads work
-without a connected wallet.
+wrong chain. Wagmi config lists Base as the default chain so reads work
+without a connected wallet. WalletModal supports both injected (MetaMask) and
+WalletConnect (Coinbase Wallet, Rainbow, Trust, etc.) for mobile users.
+InstallPrompt enables PWA install-to-home-screen on all devices. Full PWA
+manifest with 8 icon sizes (72–512px), app shortcuts, and screenshots.
 
 ## API Server (artifacts/api-server)
 

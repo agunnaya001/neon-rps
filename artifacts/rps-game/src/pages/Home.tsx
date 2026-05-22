@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Swords, Wallet, LogOut, Info, Activity, Flame } from "lucide-react";
 import { useMyGames, useOpenGames, useAllGames } from "@/hooks/useGames";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { CONTRACT_ADDRESS } from "@/lib/contract";
+import { WalletModal } from "@/components/WalletModal";
 import { formatEther } from "viem";
 import { Footer } from "@/components/Footer";
 import { PlayerStats } from "@/components/PlayerStats";
@@ -14,7 +15,8 @@ import { WinStreak } from "@/components/WinStreak";
 import { calculateStreaks } from "@/lib/streak-utils";
 
 export default function Home() {
-  const { address, isConnected, connect, disconnect } = useWallet();
+  const { address, isConnected, disconnect } = useWallet();
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const { games: myGames, isLoading: loadingMine } = useMyGames();
   const { games: openGames, isLoading: loadingOpen } = useOpenGames();
   const { games: allGames, isLoading: loadingAll } = useAllGames();
@@ -74,22 +76,23 @@ export default function Home() {
         </div>
         
         {isConnected ? (
-          <button 
-            onClick={() => disconnect()} 
+          <button
+            onClick={() => disconnect()}
             className="flex items-center gap-2 arcade-btn arcade-btn-secondary px-4 py-2 text-sm"
           >
             <span className="font-mono">{shortAddress(address)}</span>
             <LogOut className="w-4 h-4" />
           </button>
         ) : (
-          <button 
-            onClick={() => connect()} 
+          <button
+            onClick={() => setShowWalletModal(true)}
             className="flex items-center gap-2 arcade-btn px-6 py-2"
           >
             <Wallet className="w-5 h-5" />
             CONNECT WALLET
           </button>
         )}
+        <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
       </header>
 
       {!CONTRACT_ADDRESS && (

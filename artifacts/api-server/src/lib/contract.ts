@@ -1,15 +1,15 @@
 import { createPublicClient, http, formatEther } from "viem";
-import { sepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 const CONTRACT_ADDRESS =
   (process.env.CONTRACT_ADDRESS as `0x${string}` | undefined) ??
-  "0xEd992aD017878DdB67E7d431f53EaF862f034BA6";
+  "0x2F2e814aFd9DEb94a23b990725E5C6EF67fC7AAD";
 
 const RPC_URL =
-  process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
+  process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
 
 const client = createPublicClient({
-  chain: sepolia,
+  chain: base,
   transport: http(RPC_URL),
 });
 
