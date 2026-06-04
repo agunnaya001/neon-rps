@@ -9,6 +9,8 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 const Home = lazy(() => import("@/pages/Home"));
 const CreateGame = lazy(() => import("@/pages/CreateGame"));
 const GameDetail = lazy(() => import("@/pages/GameDetail"));
+const CreateSeries = lazy(() => import("@/pages/CreateSeries"));
+const SeriesDetail = lazy(() => import("@/pages/SeriesDetail"));
 const Leaderboard = lazy(() => import("@/pages/Leaderboard"));
 const Treasury = lazy(() => import("@/pages/Treasury"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -29,6 +31,8 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/create" component={CreateGame} />
+        <Route path="/series/new" component={CreateSeries} />
+        <Route path="/series/:id" component={SeriesDetail} />
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/treasury" component={Treasury} />
         <Route path="/game/:id" component={GameDetail} />

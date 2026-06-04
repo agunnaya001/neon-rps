@@ -6,17 +6,14 @@ import {
   usePublicClient,
   useWriteContract,
 } from "wagmi";
+import { BOT3_CONTRACT_ADDRESS, BOT3_ABI } from "@/lib/bot3-contract";
+import type { PlayableMove } from "@/lib/contract";
 import {
-  CONTRACT_ADDRESS,
-  COMMIT_REVEAL_RPS_ABI,
-  type PlayableMove,
-} from "@/lib/contract";
-import {
-  computeCommitment,
+  computeSeriesCommitment,
   generateSalt,
-  rememberPendingGameId,
-  saveCommitment,
-} from "@/lib/salt-store";
+  rememberPendingSeriesId,
+  saveSeriesCommitment,
+} from "@/lib/bot3-salt-store";
 
 type Status = "idle" | "preparing" | "submitting" | "confirming" | "success" | "error";
 
@@ -34,29 +31,29 @@ function useTxStatus() {
 
 function ensureReady(address: string | undefined): asserts address is `0x${string}` {
   if (!address) throw new Error("Connect a wallet first");
-  if (!CONTRACT_ADDRESS) throw new Error("Contract address is not configured");
+  if (!BOT3_CONTRACT_ADDRESS) throw new Error("BestOfThreeRPS contract not configured");
 }
 
-export function useCreateGame() {
+export function useCreateSeries() {
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxStatus();
-  const [createdGameId, setCreatedGameId] = useState<bigint | null>(null);
+  const [createdSeriesId, setCreatedSeriesId] = useState<bigint | null>(null);
   const [pendingSalt, setPendingSalt] = useState<`0x${string}` | null>(null);
 
-  const createGame = useCallback(
+  const createSeries = useCallback(
     async (move: PlayableMove, betEth: string): Promise<bigint> => {
       ensureReady(address);
       if (!publicClient) throw new Error("Wallet client not ready");
       tx.reset();
-      setCreatedGameId(null);
+      setCreatedSeriesId(null);
       setPendingSalt(null);
 
       tx.setStatus("preparing");
       const salt = generateSalt();
-      const commitment = computeCommitment(address, move, salt);
+      const commitment = computeSeriesCommitment(address, move, salt);
       const value = betEth.trim() === "" ? 0n : parseEther(betEth);
 
       if (balance && value > 0n && balance.value < value) {
@@ -71,9 +68,9 @@ export function useCreateGame() {
       try {
         tx.setStatus("submitting");
         const hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS!,
-          abi: COMMIT_REVEAL_RPS_ABI,
-          functionName: "createGame",
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
+          functionName: "createSeries",
           args: [commitment],
           value,
         });
@@ -82,36 +79,37 @@ export function useCreateGame() {
         tx.setStatus("confirming");
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-        let gameId: bigint | null = null;
+        let seriesId: bigint | null = null;
         for (const log of receipt.logs) {
           try {
             const decoded = decodeEventLog({
-              abi: COMMIT_REVEAL_RPS_ABI,
+              abi: BOT3_ABI,
               data: log.data,
               topics: log.topics,
             });
-            if (decoded.eventName === "GameCreated") {
-              gameId = (decoded.args as { gameId: bigint }).gameId;
+            if (decoded.eventName === "SeriesCreated") {
+              seriesId = (decoded.args as { seriesId: bigint }).seriesId;
               break;
             }
           } catch {
             /* not our event */
           }
         }
-        if (gameId === null) throw new Error("GameCreated event not found");
+        if (seriesId === null) throw new Error("SeriesCreated event not found");
 
-        saveCommitment({
-          gameId: gameId.toString(),
+        saveSeriesCommitment({
+          seriesId: seriesId.toString(),
+          round: 1,
           player: address,
           move,
           salt,
           savedAt: Date.now(),
         });
-        rememberPendingGameId(address, gameId);
+        rememberPendingSeriesId(address, seriesId);
         setPendingSalt(salt);
-        setCreatedGameId(gameId);
+        setCreatedSeriesId(seriesId);
         tx.setStatus("success");
-        return gameId;
+        return seriesId;
       } catch (err) {
         tx.setError(err as Error);
         tx.setStatus("error");
@@ -122,26 +120,28 @@ export function useCreateGame() {
   );
 
   return {
-    createGame,
-    createdGameId,
+    createSeries,
+    createdSeriesId,
     pendingSalt,
     clearPendingSalt: () => setPendingSalt(null),
     ...tx,
   };
 }
 
-export function useJoinGame() {
+export function useJoinSeries() {
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxStatus();
+  const [pendingSalt, setPendingSalt] = useState<`0x${string}` | null>(null);
 
-  const joinGame = useCallback(
-    async (gameId: bigint, move: PlayableMove, betWei: bigint): Promise<void> => {
+  const joinSeries = useCallback(
+    async (seriesId: bigint, move: PlayableMove, betWei: bigint): Promise<void> => {
       ensureReady(address);
       if (!publicClient) throw new Error("Wallet client not ready");
       tx.reset();
+      setPendingSalt(null);
 
       if (balance && betWei > 0n && balance.value < betWei) {
         const err = new Error(
@@ -154,30 +154,31 @@ export function useJoinGame() {
 
       tx.setStatus("preparing");
       const salt = generateSalt();
-      const commitment = computeCommitment(address, move, salt);
+      const commitment = computeSeriesCommitment(address, move, salt);
 
       try {
         tx.setStatus("submitting");
         const hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS!,
-          abi: COMMIT_REVEAL_RPS_ABI,
-          functionName: "joinGame",
-          args: [gameId, commitment],
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
+          functionName: "joinSeries",
+          args: [seriesId, commitment],
           value: betWei,
         });
         tx.setTxHash(hash);
-
         tx.setStatus("confirming");
         await publicClient.waitForTransactionReceipt({ hash });
 
-        saveCommitment({
-          gameId: gameId.toString(),
+        saveSeriesCommitment({
+          seriesId: seriesId.toString(),
+          round: 1,
           player: address,
           move,
           salt,
           savedAt: Date.now(),
         });
-        rememberPendingGameId(address, gameId);
+        rememberPendingSeriesId(address, seriesId);
+        setPendingSalt(salt);
         tx.setStatus("success");
       } catch (err) {
         tx.setError(err as Error);
@@ -188,27 +189,89 @@ export function useJoinGame() {
     [address, balance, publicClient, writeContractAsync, tx],
   );
 
-  return { joinGame, ...tx };
+  return {
+    joinSeries,
+    pendingSalt,
+    clearPendingSalt: () => setPendingSalt(null),
+    ...tx,
+  };
 }
 
-export function useCancelGame() {
+export function useCommitRound() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  const tx = useTxStatus();
+  const [pendingSalt, setPendingSalt] = useState<`0x${string}` | null>(null);
+
+  const commitRound = useCallback(
+    async (seriesId: bigint, round: number, move: PlayableMove): Promise<void> => {
+      ensureReady(address);
+      if (!publicClient) throw new Error("Wallet client not ready");
+      tx.reset();
+      setPendingSalt(null);
+
+      tx.setStatus("preparing");
+      const salt = generateSalt();
+      const commitment = computeSeriesCommitment(address, move, salt);
+
+      try {
+        tx.setStatus("submitting");
+        const hash = await writeContractAsync({
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
+          functionName: "commitRound",
+          args: [seriesId, commitment],
+        });
+        tx.setTxHash(hash);
+        tx.setStatus("confirming");
+        await publicClient.waitForTransactionReceipt({ hash });
+
+        saveSeriesCommitment({
+          seriesId: seriesId.toString(),
+          round,
+          player: address,
+          move,
+          salt,
+          savedAt: Date.now(),
+        });
+        setPendingSalt(salt);
+        tx.setStatus("success");
+      } catch (err) {
+        tx.setError(err as Error);
+        tx.setStatus("error");
+        throw err;
+      }
+    },
+    [address, publicClient, writeContractAsync, tx],
+  );
+
+  return {
+    commitRound,
+    pendingSalt,
+    clearPendingSalt: () => setPendingSalt(null),
+    ...tx,
+  };
+}
+
+export function useRevealRound() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxStatus();
 
-  const cancelGame = useCallback(
-    async (gameId: bigint): Promise<void> => {
+  const revealRound = useCallback(
+    async (seriesId: bigint, move: PlayableMove, salt: `0x${string}`): Promise<void> => {
       ensureReady(address);
       if (!publicClient) throw new Error("Wallet client not ready");
       tx.reset();
       try {
         tx.setStatus("submitting");
         const hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS!,
-          abi: COMMIT_REVEAL_RPS_ABI,
-          functionName: "cancelGame",
-          args: [gameId],
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
+          functionName: "reveal",
+          args: [seriesId, move, salt],
         });
         tx.setTxHash(hash);
         tx.setStatus("confirming");
@@ -222,27 +285,62 @@ export function useCancelGame() {
     },
     [address, publicClient, writeContractAsync, tx],
   );
-  return { cancelGame, ...tx };
+
+  return { revealRound, ...tx };
 }
 
-export function useClaimByDefault() {
+export function useCancelSeries() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const tx = useTxStatus();
 
-  const claimByDefault = useCallback(
-    async (gameId: bigint): Promise<void> => {
+  const cancelSeries = useCallback(
+    async (seriesId: bigint): Promise<void> => {
       ensureReady(address);
       if (!publicClient) throw new Error("Wallet client not ready");
       tx.reset();
       try {
         tx.setStatus("submitting");
         const hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS!,
-          abi: COMMIT_REVEAL_RPS_ABI,
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
+          functionName: "cancelSeries",
+          args: [seriesId],
+        });
+        tx.setTxHash(hash);
+        tx.setStatus("confirming");
+        await publicClient.waitForTransactionReceipt({ hash });
+        tx.setStatus("success");
+      } catch (err) {
+        tx.setError(err as Error);
+        tx.setStatus("error");
+        throw err;
+      }
+    },
+    [address, publicClient, writeContractAsync, tx],
+  );
+  return { cancelSeries, ...tx };
+}
+
+export function useClaimByDefaultSeries() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  const tx = useTxStatus();
+
+  const claimByDefault = useCallback(
+    async (seriesId: bigint): Promise<void> => {
+      ensureReady(address);
+      if (!publicClient) throw new Error("Wallet client not ready");
+      tx.reset();
+      try {
+        tx.setStatus("submitting");
+        const hash = await writeContractAsync({
+          address: BOT3_CONTRACT_ADDRESS!,
+          abi: BOT3_ABI,
           functionName: "claimByDefault",
-          args: [gameId],
+          args: [seriesId],
         });
         tx.setTxHash(hash);
         tx.setStatus("confirming");
@@ -257,40 +355,4 @@ export function useClaimByDefault() {
     [address, publicClient, writeContractAsync, tx],
   );
   return { claimByDefault, ...tx };
-}
-
-export function useReveal() {
-  const { address } = useAccount();
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-  const tx = useTxStatus();
-
-  const reveal = useCallback(
-    async (gameId: bigint, move: PlayableMove, salt: `0x${string}`): Promise<void> => {
-      ensureReady(address);
-      if (!publicClient) throw new Error("Wallet client not ready");
-      tx.reset();
-
-      try {
-        tx.setStatus("submitting");
-        const hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS!,
-          abi: COMMIT_REVEAL_RPS_ABI,
-          functionName: "reveal",
-          args: [gameId, move, salt],
-        });
-        tx.setTxHash(hash);
-        tx.setStatus("confirming");
-        await publicClient.waitForTransactionReceipt({ hash });
-        tx.setStatus("success");
-      } catch (err) {
-        tx.setError(err as Error);
-        tx.setStatus("error");
-        throw err;
-      }
-    },
-    [address, publicClient, writeContractAsync, tx],
-  );
-
-  return { reveal, ...tx };
 }

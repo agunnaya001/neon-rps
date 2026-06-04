@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearch, Link } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, Hand, HandMetal, Scissors } from "lucide-react";
+import { ArrowLeft, Hand, HandMetal, Scissors, LayoutList } from "lucide-react";
 import { toast } from "sonner";
 import { useChainId } from "wagmi";
-import { useCreateGame } from "@/hooks/useGameActions";
-import { useFeeBps } from "@/hooks/useGames";
+import { useCreateSeries } from "@/hooks/useBot3Actions";
+import { useBot3FeeBps } from "@/hooks/useBot3Series";
 import { useWallet } from "@/lib/wallet";
 import { Move, type PlayableMove } from "@/lib/contract";
 import { getChainName } from "@/lib/wagmi";
@@ -16,7 +16,7 @@ import { BuyBaseEthButton } from "@/components/BuyBaseEthButton";
 import { SaltModal } from "@/components/SaltModal";
 import { parseEther } from "viem";
 
-export default function CreateGame() {
+export default function CreateSeries() {
   const { isConnected, connect } = useWallet();
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -27,15 +27,13 @@ export default function CreateGame() {
   const [bet, setBet] = useState("0.01");
   const [pendingNavId, setPendingNavId] = useState<bigint | null>(null);
 
-  const { createGame, status, error, pendingSalt, clearPendingSalt } = useCreateGame();
-  const feeBps = useFeeBps();
+  const { createSeries, status, error, pendingSalt, clearPendingSalt } = useCreateSeries();
+  const feeBps = useBot3FeeBps();
 
   useEffect(() => {
     const params = new URLSearchParams(search);
     const presetBet = params.get("bet");
-    if (presetBet && /^\d*\.?\d+$/.test(presetBet)) {
-      setBet(presetBet);
-    }
+    if (presetBet && /^\d*\.?\d+$/.test(presetBet)) setBet(presetBet);
   }, [search]);
 
   let betWei = 0n;
@@ -46,9 +44,9 @@ export default function CreateGame() {
   async function onSubmit() {
     try {
       const toastId = toast(`Confirming on ${chainName}…`);
-      const id = await createGame(move, bet);
+      const id = await createSeries(move, bet);
       toast.dismiss(toastId);
-      toast.success("Move committed!");
+      toast.success("Round 1 committed!");
       setPendingNavId(id);
     } catch (err) {
       toast.error(parseContractError(err));
@@ -57,13 +55,13 @@ export default function CreateGame() {
 
   function onSaltSaved() {
     clearPendingSalt();
-    if (pendingNavId !== null) setLocation(`/game/${pendingNavId}`);
+    if (pendingNavId !== null) setLocation(`/series/${pendingNavId}`);
   }
 
   const moves = [
     { value: Move.Rock, label: "ROCK", icon: HandMetal, color: "text-red-500", border: "border-red-500" },
     { value: Move.Paper, label: "PAPER", icon: Hand, color: "text-blue-500", border: "border-blue-500" },
-    { value: Move.Scissors, label: "SCISSORS", icon: Scissors, color: "text-yellow-500", border: "border-yellow-500" }
+    { value: Move.Scissors, label: "SCISSORS", icon: Scissors, color: "text-yellow-500", border: "border-yellow-500" },
   ];
 
   return (
@@ -81,19 +79,24 @@ export default function CreateGame() {
 
       <div className="flex-1 flex flex-col justify-center space-y-10">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl md:text-5xl font-black arcade-text text-primary drop-shadow-[0_0_15px_rgba(255,0,255,0.6)]">
-            NEW DUEL
-          </h1>
-          <p className="font-mono text-muted-foreground uppercase">Select your weapon and place your bet</p>
+          <div className="flex items-center justify-center gap-3 mb-1">
+            <LayoutList className="w-8 h-8 text-secondary" />
+            <h1 className="text-4xl md:text-5xl font-black arcade-text text-secondary drop-shadow-[0_0_15px_rgba(0,255,255,0.6)]">
+              NEW SERIES
+            </h1>
+          </div>
+          <p className="font-mono text-muted-foreground uppercase text-sm tracking-wider">
+            Best of 3 rounds · Stake once · First to 2 wins takes the pot
+          </p>
         </div>
 
         {!isConnected ? (
-          <div className="arcade-box p-8 text-center space-y-4">
+          <div className="arcade-box border-secondary/50 p-8 text-center space-y-4">
             <p className="font-mono text-lg">WALLET REQUIRED TO INITIATE SEQUENCE</p>
-            <button onClick={() => connect()} className="arcade-btn px-6 py-3" data-testid="connect-wallet-btn">
+            <button onClick={() => connect()} className="arcade-btn arcade-btn-secondary px-6 py-3">
               CONNECT WALLET
             </button>
-            <div className="pt-4 border-t border-primary/20">
+            <div className="pt-4 border-t border-secondary/20">
               <p className="font-mono text-[11px] text-muted-foreground mb-3 tracking-widest">
                 NO BASE ETH? FUND YOUR WALLET INSTANTLY ↓
               </p>
@@ -106,11 +109,11 @@ export default function CreateGame() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="arcade-box p-6 md:p-8 space-y-8"
+            className="arcade-box border-secondary/50 p-6 md:p-8 space-y-8"
           >
             <div className="space-y-4">
               <div className="text-sm font-bold arcade-text tracking-widest text-center text-foreground/80">
-                1. SELECT MOVE <span className="text-xs text-primary">(KEPT SECRET)</span>
+                1. SELECT ROUND 1 MOVE <span className="text-xs text-secondary">(HIDDEN)</span>
               </div>
               <div className="grid grid-cols-3 gap-3 md:gap-6">
                 {moves.map((m) => {
@@ -119,18 +122,15 @@ export default function CreateGame() {
                   return (
                     <motion.button
                       key={m.value}
-                      data-testid={`move-${m.label.toLowerCase()}-btn`}
                       onClick={() => {
                         setMove(m.value as PlayableMove);
-                        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-                          navigator.vibrate?.(15);
-                        }
+                        navigator.vibrate?.(15);
                       }}
                       className={`
                         relative flex flex-col items-center justify-center p-4 md:p-6 gap-3
                         border-2 transition-all duration-200 min-h-[100px]
                         ${isSelected
-                          ? `bg-${m.border.replace('border-', '')}/20 ${m.border} shadow-[0_0_20px_var(--tw-shadow-color)] shadow-${m.border.replace('border-', '')}/50 scale-105`
+                          ? `bg-${m.border.replace('border-', '')}/20 ${m.border} scale-105`
                           : 'border-border/50 hover:border-border hover:bg-background/50'}
                       `}
                       whileHover={{ scale: 1.05 }}
@@ -148,16 +148,16 @@ export default function CreateGame() {
 
             <div className="space-y-4">
               <div className="text-sm font-bold arcade-text tracking-widest text-center text-foreground/80">
-                2. ENTER WAGER
+                2. ENTER STAKE (PER PLAYER)
               </div>
               <div className="relative max-w-xs mx-auto">
                 <input
                   value={bet}
                   onChange={(e) => setBet(e.target.value)}
-                  className="w-full bg-black/50 border-2 border-primary/50 p-4 text-center font-mono text-2xl md:text-3xl text-foreground focus:border-primary focus:outline-none focus:shadow-[0_0_15px_rgba(255,0,255,0.4)] transition-all"
+                  className="w-full bg-black/50 border-2 border-secondary/50 p-4 text-center font-mono text-2xl md:text-3xl text-foreground focus:border-secondary focus:outline-none focus:shadow-[0_0_15px_rgba(0,255,255,0.4)] transition-all"
                   inputMode="decimal"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold arcade-text text-primary/80">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold arcade-text text-secondary/80">
                   ETH
                 </span>
               </div>
@@ -168,11 +168,11 @@ export default function CreateGame() {
               <button
                 onClick={onSubmit}
                 disabled={status === "submitting" || status === "confirming"}
-                className="arcade-btn px-8 py-4 w-full text-lg md:text-xl"
+                className="arcade-btn arcade-btn-secondary px-8 py-4 w-full text-lg md:text-xl"
               >
-                {status === "submitting" ? "ENCRYPTING MOVE..." :
-                 status === "confirming" ? "AWAITING NETWORK..." :
-                 "COMMIT & POST BET"}
+                {status === "submitting" ? "ENCRYPTING ROUND 1…" :
+                 status === "confirming" ? "AWAITING NETWORK…" :
+                 "COMMIT & START SERIES"}
               </button>
               {error && (
                 <div className="mt-4 text-sm font-mono text-destructive bg-destructive/10 border border-destructive p-2 w-full text-center">

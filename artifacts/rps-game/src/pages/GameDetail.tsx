@@ -4,10 +4,13 @@ import { formatEther } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Hand, HandMetal, Scissors, Trophy, AlertTriangle, ShieldQuestion, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useChainId } from "wagmi";
 import { useGame, useFeeBps } from "@/hooks/useGames";
 import { useJoinGame, useReveal, useCancelGame, useClaimByDefault } from "@/hooks/useGameActions";
 import { useWallet, shortAddress } from "@/lib/wallet";
 import { MOVE_LABELS, Move, type PlayableMove } from "@/lib/contract";
+import { getChainName } from "@/lib/wagmi";
+import { parseContractError } from "@/lib/errors";
 import { loadCommitment, type SavedCommitment } from "@/lib/salt-store";
 import { Footer } from "@/components/Footer";
 import { CountdownTimer } from "@/components/CountdownTimer";
@@ -39,15 +42,15 @@ const PhaseBar = ({ phase }: { phase: number }) => {
   return (
     <div className="flex items-center justify-between w-full max-w-2xl mx-auto mb-10 relative">
       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-border/50 -z-10"></div>
-      <div 
+      <div
         className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary transition-all duration-500 -z-10"
         style={{ width: `${((currentStep - 1) / 3) * 100}%` }}
       ></div>
-      
+
       {steps.map((step) => {
         const isActive = currentStep === step.num;
         const isPast = currentStep > step.num;
-        
+
         return (
           <div key={step.num} className="flex flex-col items-center gap-2">
             <div className={`
@@ -75,6 +78,8 @@ export default function GameDetail() {
   const { address, isConnected, connect } = useWallet();
   const feeBps = useFeeBps();
   const [, setLocation] = useLocation();
+  const chainName = getChainName(useChainId());
+
   const { joinGame, status: joinStatus, error: joinError } = useJoinGame();
   const { reveal, status: revealStatus, error: revealError } = useReveal();
   const { cancelGame, status: cancelStatus } = useCancelGame();
@@ -109,50 +114,48 @@ export default function GameDetail() {
   const handleJoin = async () => {
     if (!id || !game) return;
     try {
-      const toastId = toast("Confirming on Sepolia...");
+      const toastId = toast(`Confirming on ${chainName}…`);
       await joinGame(id, joinMove, game.bet);
       toast.dismiss(toastId);
       toast.success("You joined!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to join duel");
+    } catch (err) {
+      toast.error(parseContractError(err));
     }
   };
 
   const handleReveal = async () => {
     if (!id || !savedCommit) return;
     try {
-      const toastId = toast("Confirming on Sepolia...");
+      const toastId = toast(`Confirming on ${chainName}…`);
       await reveal(id, savedCommit.move as PlayableMove, savedCommit.salt);
       toast.dismiss(toastId);
       toast.success("Revealed!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reveal move");
+    } catch (err) {
+      toast.error(parseContractError(err));
     }
   };
-
-
 
   const handleCancel = async () => {
     if (!id) return;
     try {
-      const toastId = toast("Cancelling on Sepolia...");
+      const toastId = toast(`Cancelling on ${chainName}…`);
       await cancelGame(id);
       toast.dismiss(toastId);
       toast.success("Match cancelled, bet refunded.");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to cancel");
+    } catch (err) {
+      toast.error(parseContractError(err));
     }
   };
 
   const handleClaim = async () => {
     if (!id) return;
     try {
-      const toastId = toast("Claiming pot on Sepolia...");
+      const toastId = toast(`Claiming pot on ${chainName}…`);
       await claimByDefault(id);
       toast.dismiss(toastId);
       toast.success("Pot claimed by default!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to claim");
+    } catch (err) {
+      toast.error(parseContractError(err));
     }
   };
 
@@ -202,7 +205,6 @@ export default function GameDetail() {
     : 0n;
   const nowSecs = BigInt(Math.floor(Date.now() / 1000));
   const deadlinePassed = revealDeadline > 0n && nowSecs > revealDeadline;
-  // I revealed, opponent didn't, deadline passed → I can claim
   const canClaim =
     isConnected &&
     (isP1 || isP2) &&
@@ -239,7 +241,7 @@ export default function GameDetail() {
       <PhaseBar phase={game.phase} />
 
       {game.phase === 1 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="arcade-box border-secondary/50 p-4 max-w-xl mx-auto mb-8 flex flex-col sm:flex-row gap-3 items-center justify-center flex-wrap"
@@ -275,7 +277,6 @@ export default function GameDetail() {
       )}
 
       <div className="grid md:grid-cols-[1fr_auto_1fr] gap-6 items-center mb-12">
-        {/* Player 1 Card */}
         <div className={`arcade-box p-6 flex flex-col items-center space-y-4 ${isP1 ? 'border-primary shadow-[0_0_15px_rgba(255,0,255,0.3)]' : ''}`}>
           <div className="font-bold arcade-text text-lg">PLAYER 1 {isP1 && <span className="text-primary text-xs ml-2">(YOU)</span>}</div>
           <div className="font-mono text-sm opacity-80">{shortAddress(game.player1)}</div>
@@ -293,7 +294,6 @@ export default function GameDetail() {
 
         <div className="text-4xl font-black arcade-text text-muted-foreground opacity-50 flex justify-center">VS</div>
 
-        {/* Player 2 Card */}
         <div className={`arcade-box p-6 flex flex-col items-center space-y-4 ${isP2 ? 'border-secondary shadow-[0_0_15px_rgba(0,255,255,0.3)]' : ''}`}>
           <div className="font-bold arcade-text text-lg">PLAYER 2 {isP2 && <span className="text-secondary text-xs ml-2">(YOU)</span>}</div>
           <div className="font-mono text-sm opacity-80">
@@ -318,7 +318,7 @@ export default function GameDetail() {
 
       <AnimatePresence mode="wait">
         {game.phase >= 3 && (
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className={`arcade-box p-8 text-center mb-8 border-4 ${game.phase === 4 ? 'border-muted-foreground' : 'border-accent shadow-[0_0_30px_rgba(255,255,0,0.4)]'}`}
@@ -389,11 +389,11 @@ export default function GameDetail() {
               onClick={handleJoin}
               className="arcade-btn arcade-btn-secondary w-full py-4 text-lg"
             >
-              {joinStatus === "submitting" ? "ENCRYPTING..." : 
-               joinStatus === "confirming" ? "AWAITING NETWORK..." : 
+              {joinStatus === "submitting" ? "ENCRYPTING..." :
+               joinStatus === "confirming" ? "AWAITING NETWORK..." :
                `MATCH ${formatEther(game.bet)} ETH`}
             </button>
-            {joinError && <div className="mt-4 text-sm font-mono text-destructive text-center">{joinError.message}</div>}
+            {joinError && <div className="mt-4 text-sm font-mono text-destructive text-center">{parseContractError(joinError)}</div>}
           </motion.div>
         )}
 
@@ -408,11 +408,11 @@ export default function GameDetail() {
               onClick={handleReveal}
               className="arcade-btn w-full py-4 text-xl"
             >
-              {revealStatus === "submitting" ? "DECRYPTING..." : 
-               revealStatus === "confirming" ? "AWAITING NETWORK..." : 
+              {revealStatus === "submitting" ? "DECRYPTING..." :
+               revealStatus === "confirming" ? "AWAITING NETWORK..." :
                "REVEAL MOVE"}
             </button>
-            {revealError && <div className="mt-4 text-sm font-mono text-destructive text-center">{revealError.message}</div>}
+            {revealError && <div className="mt-4 text-sm font-mono text-destructive text-center">{parseContractError(revealError)}</div>}
           </motion.div>
         )}
 
