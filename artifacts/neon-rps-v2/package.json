@@ -1,0 +1,38 @@
+{
+  "name": "neon-rps-v2",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@wagmi/core": "^3.5.0",
+    "axios": "^1.17.0",
+    "better-auth": "^1.6.14",
+    "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.40.0",
+    "lodash": "^4.18.1",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.7",
+    "pg": "^8.21.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
+    "swr": "^2.4.1",
+    "use-debounce": "^10.1.1",
+    "viem": "^2.52.2",
+    "wagmi": "^3.6.16",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
