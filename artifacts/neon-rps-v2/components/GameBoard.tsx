@@ -21,7 +21,7 @@ export default function GameBoard({ onGameEnd, wagerAmount, currency }: GameBoar
   const [loading, setLoading] = useState(false)
   const [gameNumber, setGameNumber] = useState(1)
 
-  const moves: { name: Move; emoji: string }[] = [
+  const moves: { name: 'rock' | 'paper' | 'scissors'; emoji: string }[] = [
     { name: 'rock', emoji: '✊' },
     { name: 'paper', emoji: '✋' },
     { name: 'scissors', emoji: '✌️' },
@@ -71,7 +71,7 @@ export default function GameBoard({ onGameEnd, wagerAmount, currency }: GameBoar
     setGameNumber(gameNumber + 1)
   }
 
-  const moveEmoji: Record<Move, string> = {
+  const moveEmoji: Record<string, string> = {
     rock: '✊',
     paper: '✋',
     scissors: '✌️',
@@ -102,7 +102,7 @@ export default function GameBoard({ onGameEnd, wagerAmount, currency }: GameBoar
             transition={{ type: 'spring', stiffness: 200 }}
             className="text-6xl mb-4 h-20 flex items-center justify-center"
           >
-            {moveEmoji[playerMove]}
+            {playerMove ? moveEmoji[playerMove] : moveEmoji['null']}
           </motion.div>
           <p className="text-sm text-gray-400 h-6">
             {playerMove && playerMove.charAt(0).toUpperCase() + playerMove.slice(1)}
@@ -121,7 +121,7 @@ export default function GameBoard({ onGameEnd, wagerAmount, currency }: GameBoar
             transition={{ type: 'spring', stiffness: 200 }}
             className="text-6xl mb-4 h-20 flex items-center justify-center"
           >
-            {moveEmoji[opponentMove]}
+            {opponentMove ? moveEmoji[opponentMove] : moveEmoji['null']}
           </motion.div>
           <p className="text-sm text-gray-400 h-6">
             {opponentMove && opponentMove.charAt(0).toUpperCase() + opponentMove.slice(1)}
