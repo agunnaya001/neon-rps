@@ -56,6 +56,17 @@ export function Footer() {
       <div className="font-mono text-[10px] text-muted-foreground/50 mt-1">
         Provably fair · No front-running · 2.5% protocol fee on wins only
       </div>
+      <div className="font-mono text-[10px] text-muted-foreground/40 mt-0.5">
+        Built by{" "}
+        <a
+          href="https://twitter.com/search?q=David+Okeamah"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-primary/60 transition-colors"
+        >
+          David Okeamah
+        </a>
+      </div>
     </footer>
   );
 }

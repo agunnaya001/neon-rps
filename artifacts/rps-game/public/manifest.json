@@ -1,8 +1,10 @@
 {
+  "id": "https://neonrps.xyz/",
   "name": "Neon RPS — On-Chain Rock Paper Scissors",
   "short_name": "Neon RPS",
-  "description": "Front-running-resistant commit-reveal Rock Paper Scissors duels on Base. Bet ETH, win ETH.",
+  "description": "Provably fair commit-reveal Rock Paper Scissors on Base. Bet ETH, win ETH. No front-running possible.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#000000",
@@ -72,8 +74,15 @@
     {
       "name": "New Duel",
       "short_name": "Duel",
-      "description": "Start a new Rock Paper Scissors duel",
+      "description": "Start a new single-round Rock Paper Scissors duel",
       "url": "/create",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Best of 3 Series",
+      "short_name": "Best of 3",
+      "description": "Start a best-of-3 RPS series — first to 2 wins takes the pot",
+      "url": "/series/new",
       "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     },
     {
