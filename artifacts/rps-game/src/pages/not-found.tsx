@@ -1,21 +1,42 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { motion } from "framer-motion";
+import { Home, AlertTriangle } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-background">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="arcade-box max-w-md w-full p-8 space-y-6 text-center"
+      >
+        <AlertTriangle className="w-12 h-12 text-destructive mx-auto drop-shadow-[0_0_10px_rgba(255,0,0,0.5)]" />
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+        <div>
+          <div className="text-6xl font-black arcade-text text-primary drop-shadow-[0_0_15px_rgba(255,0,255,0.6)] mb-2">
+            404
+          </div>
+          <h1 className="text-xl font-black arcade-text text-foreground mb-1">
+            SIGNAL LOST
+          </h1>
+          <p className="font-mono text-sm text-muted-foreground">
+            This sector of the arena doesn't exist.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="font-mono text-xs text-muted-foreground/50 space-y-1">
+          <div>ERROR CODE: PAGE_NOT_FOUND</div>
+          <div>STATUS: 404</div>
+        </div>
+
+        <Link
+          href="/"
+          className="arcade-btn px-6 py-3 flex items-center justify-center gap-2 w-full"
+        >
+          <Home className="w-4 h-4" />
+          RETURN TO LOBBY
+        </Link>
+      </motion.div>
     </div>
   );
 }

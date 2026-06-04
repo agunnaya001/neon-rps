@@ -18,7 +18,7 @@ export function InstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setTimeout(() => setVisible(true), 3000);
+      setTimeout(() => setVisible(true), 4000);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
@@ -49,7 +49,7 @@ export function InstallPrompt() {
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-80"
+          className="fixed bottom-20 md:bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-80"
         >
           <div className="arcade-box border-secondary bg-black/95 p-4 flex items-start gap-3 shadow-[0_0_20px_rgba(0,255,255,0.3)]">
             <Download className="w-5 h-5 text-secondary shrink-0 mt-0.5" />

@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProviders } from "@/lib/providers";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { BottomNav } from "@/components/BottomNav";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Home = lazy(() => import("@/pages/Home"));
 const CreateGame = lazy(() => import("@/pages/CreateGame"));
@@ -18,8 +20,11 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 function PageSkeleton() {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center">
-      <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground animate-pulse">
-        Loading…
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
+        <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground animate-pulse">
+          Loading…
+        </div>
       </div>
     </div>
   );
@@ -44,16 +49,24 @@ function Router() {
 
 function App() {
   return (
-    <AppProviders>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <NetworkBanner />
-          <Router />
-        </WouterRouter>
-        <Toaster theme="dark" toastOptions={{ className: 'arcade-box font-mono !border-primary' }} />
-        <InstallPrompt />
-      </TooltipProvider>
-    </AppProviders>
+    <ErrorBoundary>
+      <AppProviders>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <NetworkBanner />
+            <ErrorBoundary>
+              <Router />
+            </ErrorBoundary>
+            <BottomNav />
+          </WouterRouter>
+          <Toaster
+            theme="dark"
+            toastOptions={{ className: "arcade-box font-mono !border-primary" }}
+          />
+          <InstallPrompt />
+        </TooltipProvider>
+      </AppProviders>
+    </ErrorBoundary>
   );
 }
 
