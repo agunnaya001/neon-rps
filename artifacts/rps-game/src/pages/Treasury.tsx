@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useGames";
 import { shortAddress } from "@/lib/wallet";
 import { Footer } from "@/components/Footer";
+import { useEthPrice, formatUsd } from "@/lib/useEthPrice";
 
 const BASESCAN_BASE =
   CHAIN_ID === 8453
@@ -72,6 +73,7 @@ export default function Treasury() {
   const revenue = useRevenueAnalytics();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
+  const { data: ethPrice } = useEthPrice();
   const [busy, setBusy] = useState(false);
   const [alertSet, setAlertSet] = useState(false);
 
@@ -110,12 +112,9 @@ export default function Treasury() {
   const maxBar = Math.max(...revenue.dailyBars.map((b) => b.eth), 0.000001);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col p-4 md:p-8 max-w-3xl mx-auto w-full">
+    <div className="min-h-[100dvh] flex flex-col p-4 md:p-8 max-w-3xl mx-auto w-full pb-20 md:pb-8">
       <div className="mb-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors"
-        >
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
           LOBBY
         </Link>
@@ -131,42 +130,28 @@ export default function Treasury() {
         </p>
       </div>
 
-      {/* -- Revenue analytics -- */}
+      {/* Revenue analytics */}
       <div className="arcade-box p-5 mb-5">
         <div className="flex items-center gap-2 mb-4">
           <BarChart2 className="w-4 h-4 text-secondary" />
-          <span className="font-mono text-xs uppercase tracking-widest text-secondary">
-            Revenue analytics
-          </span>
+          <span className="font-mono text-xs uppercase tracking-widest text-secondary">Revenue Analytics</span>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="text-center">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Last 24 h
-            </div>
-            <div className="text-xl font-black arcade-text text-accent tabular-nums">
-              {fmt(revenue.earned24h, 5)}
-            </div>
-            <div className="text-[10px] font-mono text-muted-foreground">ETH</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Last 7 days
-            </div>
-            <div className="text-xl font-black arcade-text text-secondary tabular-nums">
-              {fmt(revenue.earned7d, 5)}
-            </div>
-            <div className="text-[10px] font-mono text-muted-foreground">ETH</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Proj. monthly
-            </div>
-            <div className="text-xl font-black arcade-text text-primary tabular-nums">
-              {fmt(projectedMonthly, 5)}
-            </div>
-            <div className="text-[10px] font-mono text-muted-foreground">ETH</div>
-          </div>
+          {[
+            { label: "Last 24h", wei: revenue.earned24h, color: "text-accent" },
+            { label: "Last 7d", wei: revenue.earned7d, color: "text-secondary" },
+            { label: "Proj. monthly", wei: projectedMonthly, color: "text-primary" },
+          ].map(({ label, wei, color }) => {
+            const usd = formatUsd(wei, ethPrice);
+            return (
+              <div key={label} className="text-center">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">{label}</div>
+                <div className={`text-xl font-black arcade-text tabular-nums ${color}`}>{fmt(wei, 5)}</div>
+                <div className="text-[10px] font-mono text-muted-foreground">ETH</div>
+                {usd && <div className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">{usd}</div>}
+              </div>
+            );
+          })}
         </div>
 
         {/* 7-day bar chart */}
@@ -187,34 +172,26 @@ export default function Treasury() {
         {revenue.earned7d > 0n && (
           <div className="mt-3 font-mono text-[10px] text-muted-foreground text-center flex items-center justify-center gap-1">
             <TrendingUp className="w-3 h-3 text-secondary" />
-            7-day avg {fmt(weekly7dAvg, 6)} ETH/day · projected{" "}
-            {fmt(projectedMonthly, 4)} ETH/mo
+            7-day avg {fmt(weekly7dAvg, 6)} ETH/day · projected {fmt(projectedMonthly, 4)} ETH/mo
           </div>
         )}
       </div>
 
-      {/* -- Pending + rate -- */}
+      {/* Pending + rate */}
       <div className="grid sm:grid-cols-2 gap-4 mb-5">
         <div className="arcade-box p-5">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
-            Protocol fee
-          </div>
-          <div className="text-3xl font-black arcade-text text-accent">
-            {(feeBps / 100).toFixed(2)}%
-          </div>
-          <div className="text-xs font-mono text-muted-foreground mt-1">
-            On winning pot only · ties &amp; cancels free
-          </div>
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">Protocol fee</div>
+          <div className="text-3xl font-black arcade-text text-accent">{(feeBps / 100).toFixed(2)}%</div>
+          <div className="text-xs font-mono text-muted-foreground mt-1">On winning pot only · ties &amp; cancels free</div>
         </div>
         <div className="arcade-box p-5">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
-            Pending payout
-          </div>
-          <div
-            className={`text-3xl font-black arcade-text tabular-nums ${stats.pending > 0n ? "text-secondary" : "text-muted-foreground"}`}
-          >
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">Pending payout</div>
+          <div className={`text-3xl font-black arcade-text tabular-nums ${stats.pending > 0n ? "text-secondary" : "text-muted-foreground"}`}>
             {fmt(stats.pending, 5)} <span className="text-base">ETH</span>
           </div>
+          {formatUsd(stats.pending, ethPrice) && (
+            <div className="text-xs font-mono text-muted-foreground/60 mt-0.5">{formatUsd(stats.pending, ethPrice)}</div>
+          )}
           {stats.pending > 0n && (
             <div className="text-xs font-mono text-accent mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> Ready to withdraw
@@ -223,32 +200,29 @@ export default function Treasury() {
         </div>
       </div>
 
-      {/* -- Lifetime stats -- */}
+      {/* Lifetime stats */}
       <div className="grid sm:grid-cols-2 gap-4 mb-5">
-        <div className="arcade-box p-5">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
-            Lifetime collected
-          </div>
-          <div className="text-2xl font-bold arcade-text text-foreground tabular-nums">
-            {fmt(stats.totalCollected, 5)} <span className="text-sm">ETH</span>
-          </div>
-        </div>
-        <div className="arcade-box p-5">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
-            Lifetime withdrawn
-          </div>
-          <div className="text-2xl font-bold arcade-text text-foreground tabular-nums">
-            {fmt(stats.totalWithdrawn, 5)} <span className="text-sm">ETH</span>
-          </div>
-        </div>
+        {[
+          { label: "Lifetime collected", wei: stats.totalCollected },
+          { label: "Lifetime withdrawn", wei: stats.totalWithdrawn },
+        ].map(({ label, wei }) => {
+          const usd = formatUsd(wei, ethPrice);
+          return (
+            <div key={label} className="arcade-box p-5">
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">{label}</div>
+              <div className="text-2xl font-bold arcade-text text-foreground tabular-nums">
+                {fmt(wei, 5)} <span className="text-sm">ETH</span>
+              </div>
+              {usd && <div className="text-xs font-mono text-muted-foreground/60 mt-0.5">{usd}</div>}
+            </div>
+          );
+        })}
       </div>
 
-      {/* -- Addresses -- */}
+      {/* Addresses */}
       <div className="arcade-box p-5 mb-5 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Treasury wallet
-          </div>
+          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Treasury wallet</div>
           {stats.feeRecipient ? (
             <a
               href={`${BASESCAN_BASE}/address/${stats.feeRecipient}`}
@@ -264,9 +238,7 @@ export default function Treasury() {
           )}
         </div>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Contract
-          </div>
+          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Contract</div>
           {CONTRACT_ADDRESS && (
             <a
               href={`${BASESCAN_BASE}/address/${CONTRACT_ADDRESS}#code`}
@@ -286,7 +258,7 @@ export default function Treasury() {
         )}
       </div>
 
-      {/* -- Withdraw CTA -- */}
+      {/* Withdraw CTA */}
       <button
         onClick={handleWithdraw}
         disabled={busy || stats.pending === 0n}
@@ -297,14 +269,13 @@ export default function Treasury() {
           ? "WITHDRAWING…"
           : stats.pending === 0n
             ? "NO PENDING FEES"
-            : `WITHDRAW ${fmt(stats.pending, 4)} ETH`}
+            : `WITHDRAW ${fmt(stats.pending, 4)} ETH${formatUsd(stats.pending, ethPrice) ? ` (${formatUsd(stats.pending, ethPrice)})` : ""}`}
       </button>
       <p className="font-mono text-[10px] text-muted-foreground text-center mb-6">
-        Anyone can trigger a withdrawal — funds always route to the treasury
-        wallet above.
+        Anyone can trigger a withdrawal — funds always route to the treasury wallet above.
       </p>
 
-      {/* -- Claim alert nudge (owner only) -- */}
+      {/* Earnings alert (owner only) */}
       {isRecipient && stats.pending > 0n && !alertSet && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -313,12 +284,9 @@ export default function Treasury() {
         >
           <Bell className="w-4 h-4 text-secondary flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <div className="font-mono text-xs text-secondary uppercase tracking-widest mb-1">
-              Earnings ready
-            </div>
+            <div className="font-mono text-xs text-secondary uppercase tracking-widest mb-1">Earnings ready</div>
             <div className="font-mono text-xs text-muted-foreground">
-              You have {fmt(stats.pending, 5)} ETH pending. Withdraw now or set
-              a browser reminder to claim weekly.
+              You have {fmt(stats.pending, 5)} ETH pending. Withdraw now or set a reminder.
             </div>
           </div>
           <button

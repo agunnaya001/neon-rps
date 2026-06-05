@@ -17,6 +17,7 @@ import { CountdownTimer } from "@/components/CountdownTimer";
 import { ShareDialog } from "@/components/ShareDialog";
 import { ParticleEffect } from "@/components/ParticleEffect";
 import { FeeBreakdown } from "@/components/FeeBreakdown";
+import { EthAmount } from "@/components/EthAmount";
 
 const REVEAL_TIMEOUT_SECS = 24n * 60n * 60n;
 
@@ -220,7 +221,7 @@ export default function GameDetail() {
   ];
 
   return (
-    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full">
+    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full pb-20 md:pb-8">
       <ParticleEffect trigger={showParticles} type="confetti" />
       <div className="mb-6 flex justify-between items-center">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors">
@@ -228,7 +229,7 @@ export default function GameDetail() {
           LOBBY
         </Link>
         <div className="arcade-box px-4 py-1 text-xs font-mono text-secondary">
-          {formatEther(game.bet)} ETH POOL
+          <EthAmount wei={game.bet * 2n} className="text-secondary" /> POOL
         </div>
       </div>
 
@@ -353,7 +354,7 @@ export default function GameDetail() {
               className="arcade-btn px-6 py-3 flex items-center gap-2 !border-secondary !text-secondary hover:!bg-secondary/20"
             >
               <RefreshCcw className="w-4 h-4" />
-              REMATCH ({formatEther(game.bet)} ETH)
+              REMATCH (<EthAmount wei={game.bet} showUsd={false} />)
             </button>
           </motion.div>
         )}
@@ -391,7 +392,7 @@ export default function GameDetail() {
             >
               {joinStatus === "submitting" ? "ENCRYPTING..." :
                joinStatus === "confirming" ? "AWAITING NETWORK..." :
-               `MATCH ${formatEther(game.bet)} ETH`}
+               <>MATCH <EthAmount wei={game.bet} showUsd={false} /></>}
             </button>
             {joinError && <div className="mt-4 text-sm font-mono text-destructive text-center">{parseContractError(joinError)}</div>}
           </motion.div>
@@ -432,7 +433,7 @@ export default function GameDetail() {
                 ? "SUBMITTING…"
                 : claimStatus === "confirming"
                   ? "AWAITING NETWORK…"
-                  : `CLAIM ${formatEther(game.bet * 2n)} ETH`}
+                  : <><span>CLAIM </span><EthAmount wei={game.bet * 2n} className="inline" /></>}
             </button>
           </motion.div>
         )}

@@ -24,6 +24,7 @@ import { CountdownTimer } from "@/components/CountdownTimer";
 import { ParticleEffect } from "@/components/ParticleEffect";
 import { FeeBreakdown } from "@/components/FeeBreakdown";
 import { Footer } from "@/components/Footer";
+import { EthAmount } from "@/components/EthAmount";
 
 const REVEAL_TIMEOUT = BigInt(24 * 60 * 60);
 
@@ -204,7 +205,7 @@ export default function SeriesDetail() {
   }
 
   return (
-    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full">
+    <div className="min-h-[100dvh] p-4 md:p-8 max-w-4xl mx-auto flex flex-col w-full pb-20 md:pb-8">
       <ParticleEffect trigger={showParticles} type="confetti" />
 
       {joinSalt && <SaltModal salt={joinSalt} onConfirm={clearJoinSalt} />}
@@ -216,7 +217,7 @@ export default function SeriesDetail() {
           LOBBY
         </Link>
         <div className="arcade-box border-secondary/50 px-4 py-1 text-xs font-mono text-secondary">
-          {formatEther(series.bet)} ETH STAKE
+          <EthAmount wei={series.bet} className="text-secondary" /> STAKE
         </div>
       </div>
 
@@ -305,7 +306,7 @@ export default function SeriesDetail() {
             className="arcade-box border-secondary/80 p-6 max-w-lg mx-auto w-full mb-6">
             <h2 className="text-xl font-bold arcade-text text-center text-secondary mb-2">JOIN SERIES</h2>
             <p className="font-mono text-xs text-muted-foreground text-center mb-6">
-              Stake {formatEther(series.bet)} ETH · Best of 3 rounds · First to 2 wins
+              Stake <EthAmount wei={series.bet} showUsd={false} /> · Best of 3 rounds · First to 2 wins
             </p>
             <div className="grid grid-cols-3 gap-3 mb-6">
               {moves.map((m) => {
@@ -325,7 +326,7 @@ export default function SeriesDetail() {
               onClick={handleJoin} className="arcade-btn arcade-btn-secondary w-full py-4 text-lg">
               {joinStatus === "submitting" ? "ENCRYPTING…" :
                joinStatus === "confirming" ? "AWAITING NETWORK…" :
-               `JOIN · STAKE ${formatEther(series.bet)} ETH`}
+               <><span>JOIN · STAKE </span><EthAmount wei={series.bet} showUsd={false} /></>}
             </button>
             {joinError && <div className="mt-3 text-sm font-mono text-destructive text-center">{parseContractError(joinError)}</div>}
           </motion.div>
@@ -447,7 +448,7 @@ export default function SeriesDetail() {
               <button onClick={() => setLocation(`/series/new?bet=${formatEther(series.bet)}`)}
                 className="arcade-btn px-6 py-3 flex items-center gap-2 !border-secondary !text-secondary hover:!bg-secondary/20">
                 <RefreshCcw className="w-4 h-4" />
-                REMATCH ({formatEther(series.bet)} ETH)
+                REMATCH (<EthAmount wei={series.bet} showUsd={false} />)
               </button>
             </motion.div>
           </>
@@ -467,7 +468,7 @@ export default function SeriesDetail() {
               className="arcade-btn w-full py-4 text-xl !border-accent !text-accent hover:!bg-accent/20">
               {claimStatus === "submitting" ? "SUBMITTING…" :
                claimStatus === "confirming" ? "AWAITING NETWORK…" :
-               `CLAIM ${formatEther(series.bet * 2n)} ETH`}
+               <><span>CLAIM </span><EthAmount wei={series.bet * 2n} showUsd={false} /></>}
             </button>
           </motion.div>
         )}
