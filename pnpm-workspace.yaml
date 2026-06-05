@@ -153,3 +153,22 @@ overrides:
   "rollup>@rollup/rollup-win32-ia32-msvc": "-"
   "rollup>@rollup/rollup-win32-x64-gnu": "-"
   "rollup>@rollup/rollup-win32-x64-msvc": "-"
+  # Security: override vulnerable transitive dependencies to patched versions
+  # serialize-javascript <7 - GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v
+  serialize-javascript: ">=7.0.0"
+  # tmp <0.1.0 - GHSA-ph9p-34f9-6g65 (High), GHSA-52f5-9888-hmc6 (Low)
+  tmp: ">=0.2.7"
+  # lodash <4.18.1 - GHSA-r5fr-rjxr-66jc (High), GHSA-f23m-r3pf-42rh, GHSA-xxjr-mmjv-4gpg
+  lodash: ">=4.18.1"
+  # undici 5.29.0 - GHSA-v9p9-hfj2-hcw8, GHSA-vrm6-8vpv-qv8q (High) + 3 Medium; no 5.x patch exists
+  undici: ">=6.21.0"
+  # uuid <9 - GHSA-w5hq-g745-h8pq
+  uuid: ">=9.0.0"
+  # ws 8.17.1 / 8.18.0 - GHSA-58qx-3vcg-4xpx; fixed in 8.18.1
+  ws: ">=8.18.1"
+  # cookie 0.4.2 - GHSA-pxg6-pf52-xh8x; fixed in 0.7.0
+  cookie: ">=0.7.0"
+  # postcss 8.4.31 - GHSA-qx2v-qp2m-jg93; fixed in 8.4.32
+  postcss: ">=8.4.32"
+  # bn.js 4.11.6 - GHSA-378v-28hj-76wf; timing side-channel fixed in 5.2.1
+  bn.js: ">=5.2.0"
