@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "QMoKVjbhpC07waxRedodg"
+uri = "file://artifacts/neon-rps-mobile/assets/images/icon.png"
+type = "image"
+title = "neon-rps-icon"

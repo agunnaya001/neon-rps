@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/neon-rps-mobile/"
+title = "Neon RPS Mobile"
+version = "1.0.0"
+id = "artifacts/neon-rps-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/neon-rps-mobile/" ]
+localPort = 25220
+
+[services.development]
+run = "pnpm --filter @workspace/neon-rps-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/neon-rps-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/neon-rps-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "25220"
+BASE_PATH = "/neon-rps-mobile/"
