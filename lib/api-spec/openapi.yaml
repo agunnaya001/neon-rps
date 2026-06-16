@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Neon RPS API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: leaderboard
+    description: Leaderboard operations
+  - name: tournaments
+    description: Tournament operations
+  - name: challenges
+    description: Challenge operations
 paths:
   /healthz:
     get:
@@ -24,6 +29,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get leaderboard
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all-time, monthly, weekly]
+            default: all-time
+      responses:
+        "200":
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaderboardResponse"
+
+  /tournaments:
+    get:
+      operationId: getTournaments
+      tags: [tournaments]
+      summary: Get all tournaments
+      responses:
+        "200":
+          description: List of tournaments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tournament"
+    post:
+      operationId: createTournament
+      tags: [tournaments]
+      summary: Create a tournament
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentInput"
+      responses:
+        "201":
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /challenges:
+    get:
+      operationId: getDailyChallenge
+      tags: [challenges]
+      summary: Get today's challenge
+      responses:
+        "200":
+          description: Today's challenge and progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +112,140 @@ components:
       required:
         - status
 
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        walletAddress:
+          type: ["string", "null"]
+        totalWins:
+          type: integer
+        totalWinnings:
+          type: string
+      required:
+        - rank
+        - totalWins
+        - totalWinnings
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        period:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+      required:
+        - period
+        - data
+
+    Tournament:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        format:
+          type: string
+        maxPlayers:
+          type: integer
+        entryFee:
+          type: string
+        prizePool:
+          type: ["string", "null"]
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - format
+        - maxPlayers
+        - entryFee
+        - status
+        - createdAt
+
+    TournamentInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        format:
+          type: string
+        maxPlayers:
+          type: integer
+        entryFee:
+          type: string
+      required:
+        - name
+        - format
+        - maxPlayers
+        - entryFee
+
+    Challenge:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        requirement:
+          type: string
+        target:
+          type: integer
+        rewardAmount:
+          type: string
+        day:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - requirement
+        - target
+        - rewardAmount
+        - day
+
+    ChallengeProgress:
+      type: object
+      properties:
+        progress:
+          type: integer
+        completed:
+          type: boolean
+      required:
+        - progress
+        - completed
+
+    ChallengeResponse:
+      type: object
+      properties:
+        challenge:
+          oneOf:
+            - $ref: "#/components/schemas/Challenge"
+            - type: "null"
+        progress:
+          oneOf:
+            - $ref: "#/components/schemas/ChallengeProgress"
+            - type: "null"
+      required:
+        - challenge
+        - progress
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
