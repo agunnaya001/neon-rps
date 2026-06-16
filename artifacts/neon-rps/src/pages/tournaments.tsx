@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'wouter'
-import { useGetTournaments, useCreateTournament } from '@workspace/api-client-react'
+import { Trophy, Plus, X, Users, DollarSign, Layers } from 'lucide-react'
+import { useGetTournaments, useCreateTournament, getGetTournamentsQueryKey } from '@workspace/api-client-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { getGetTournamentsQueryKey } from '@workspace/api-client-react'
+import Layout from '@/components/Layout'
 
 export default function TournamentsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -31,66 +31,104 @@ export default function TournamentsPage() {
     })
   }
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a3a] to-[#0f0f23]">
-      <nav className="border-b border-[#333333] bg-[#0f0f23]/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-[#00ff88]">NEON RPS</Link>
-          <div className="flex gap-6">
-            <Link href="/tournaments" className="text-[#00ff88]">Tournaments</Link>
-            <Link href="/challenges" className="text-white hover:text-[#00ff88] transition">Challenges</Link>
-            <Link href="/leaderboard" className="text-white hover:text-[#00ff88] transition">Leaderboard</Link>
-          </div>
-        </div>
-      </nav>
+  const statusStyle = (status: string) => {
+    if (status === 'open') return { backgroundColor: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }
+    if (status === 'active') return { backgroundColor: 'rgba(0,204,255,0.15)', color: '#00ccff', border: '1px solid rgba(0,204,255,0.3)' }
+    return { backgroundColor: 'rgba(100,100,100,0.15)', color: '#888', border: '1px solid rgba(100,100,100,0.3)' }
+  }
 
-      <section className="max-w-7xl mx-auto px-4 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-white">🏆 Tournaments</h1>
+  return (
+    <Layout activePath="/tournaments">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-black text-white mb-2">Tournaments</h1>
+            <p style={{ color: '#888' }}>Compete in bracket tournaments for massive prize pools</p>
+          </div>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-6 py-2 bg-[#00ff88] text-[#0f0f23] font-bold rounded hover:bg-[#00ccff] transition"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shrink-0"
+            style={{ backgroundColor: showCreateForm ? 'rgba(255,0,110,0.15)' : 'rgba(0,255,136,0.15)', color: showCreateForm ? '#ff006e' : '#00ff88', border: `1px solid ${showCreateForm ? 'rgba(255,0,110,0.3)' : 'rgba(0,255,136,0.3)'}` }}
           >
-            + Create Tournament
+            {showCreateForm ? <X size={16} /> : <Plus size={16} />}
+            {showCreateForm ? 'Cancel' : 'Create Tournament'}
           </button>
         </div>
 
         {showCreateForm && (
-          <div className="bg-[#1a1a3a] border border-[#00ff88] rounded-lg p-8 mb-8">
-            <h2 className="text-2xl font-bold text-white mb-6">Create New Tournament</h2>
-            <form onSubmit={handleCreateTournament} className="space-y-4">
+          <div className="rounded-2xl p-8 border mb-8 fade-in" style={{ backgroundColor: 'rgba(26,26,58,0.8)', borderColor: 'rgba(0,255,136,0.3)' }}>
+            <h2 className="text-2xl font-black text-white mb-6">New Tournament</h2>
+            <form onSubmit={handleCreateTournament} className="space-y-5">
               <div>
-                <label className="block text-[#00ff88] font-bold mb-2">Tournament Name</label>
-                <input name="name" required className="w-full bg-[#0f0f23] border border-[#333333] rounded px-4 py-2 text-white" />
+                <label className="block text-xs font-bold tracking-widest mb-2" style={{ color: '#00ff88' }}>TOURNAMENT NAME</label>
+                <input
+                  name="name"
+                  required
+                  className="w-full rounded-xl px-4 py-3 text-white font-medium focus:outline-none transition-all"
+                  style={{ backgroundColor: '#0f0f23', border: '1px solid #2a2a4a' }}
+                  placeholder="e.g. Weekly Grand Prix"
+                  onFocus={e => (e.target.style.borderColor = '#00ff88')}
+                  onBlur={e => (e.target.style.borderColor = '#2a2a4a')}
+                />
               </div>
               <div>
-                <label className="block text-[#00ff88] font-bold mb-2">Description</label>
-                <textarea name="description" className="w-full bg-[#0f0f23] border border-[#333333] rounded px-4 py-2 text-white" rows={3} />
+                <label className="block text-xs font-bold tracking-widest mb-2" style={{ color: '#00ff88' }}>DESCRIPTION</label>
+                <textarea
+                  name="description"
+                  rows={2}
+                  className="w-full rounded-xl px-4 py-3 text-white font-medium focus:outline-none transition-all resize-none"
+                  style={{ backgroundColor: '#0f0f23', border: '1px solid #2a2a4a' }}
+                  placeholder="Optional description..."
+                  onFocus={e => (e.target.style.borderColor = '#00ff88')}
+                  onBlur={e => (e.target.style.borderColor = '#2a2a4a')}
+                />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[#00ff88] font-bold mb-2">Format</label>
-                  <select name="format" className="w-full bg-[#0f0f23] border border-[#333333] rounded px-4 py-2 text-white">
-                    <option value="single-elimination">Single Elimination</option>
-                    <option value="double-elimination">Double Elimination</option>
-                    <option value="round-robin">Round Robin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[#00ff88] font-bold mb-2">Max Players</label>
-                  <input name="maxPlayers" type="number" defaultValue="8" min="2" required className="w-full bg-[#0f0f23] border border-[#333333] rounded px-4 py-2 text-white" />
-                </div>
-                <div>
-                  <label className="block text-[#00ff88] font-bold mb-2">Entry Fee (ETH)</label>
-                  <input name="entryFee" type="text" defaultValue="0.01" required className="w-full bg-[#0f0f23] border border-[#333333] rounded px-4 py-2 text-white" />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  {
+                    name: 'format', label: 'FORMAT', type: 'select',
+                    options: [
+                      { value: 'single-elimination', label: 'Single Elimination' },
+                      { value: 'double-elimination', label: 'Double Elimination' },
+                      { value: 'round-robin', label: 'Round Robin' },
+                    ]
+                  },
+                  { name: 'maxPlayers', label: 'MAX PLAYERS', type: 'number', defaultValue: '8', min: '2' },
+                  { name: 'entryFee', label: 'ENTRY FEE (ETH)', type: 'text', defaultValue: '0.01' },
+                ].map(field => (
+                  <div key={field.name}>
+                    <label className="block text-xs font-bold tracking-widest mb-2" style={{ color: '#00ff88' }}>{field.label}</label>
+                    {field.type === 'select' ? (
+                      <select
+                        name={field.name}
+                        className="w-full rounded-xl px-4 py-3 text-white font-medium focus:outline-none transition-all"
+                        style={{ backgroundColor: '#0f0f23', border: '1px solid #2a2a4a' }}
+                      >
+                        {field.options!.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        name={field.name}
+                        type={field.type}
+                        defaultValue={field.defaultValue}
+                        min={field.min}
+                        required
+                        className="w-full rounded-xl px-4 py-3 text-white font-medium focus:outline-none transition-all"
+                        style={{ backgroundColor: '#0f0f23', border: '1px solid #2a2a4a' }}
+                        onFocus={e => (e.target.style.borderColor = '#00ff88')}
+                        onBlur={e => (e.target.style.borderColor = '#2a2a4a')}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="flex gap-4">
-                <button type="submit" disabled={createTournament.isPending} className="px-8 py-3 bg-[#00ff88] text-[#0f0f23] font-bold rounded hover:bg-[#00ccff] transition disabled:opacity-50">
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={createTournament.isPending}
+                  className="px-8 py-3 rounded-xl font-bold text-[#0f0f23] shimmer-btn transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {createTournament.isPending ? 'Creating...' : 'Create Tournament'}
-                </button>
-                <button type="button" onClick={() => setShowCreateForm(false)} className="px-8 py-3 bg-[#333333] text-white font-bold rounded hover:bg-[#444444] transition">
-                  Cancel
                 </button>
               </div>
             </form>
@@ -98,52 +136,57 @@ export default function TournamentsPage() {
         )}
 
         {isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-[#666666]">Loading tournaments...</p>
+          <div className="flex items-center justify-center py-20 gap-3">
+            <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#00ff88', borderTopColor: 'transparent' }} />
+            <span style={{ color: '#666' }}>Loading tournaments...</span>
           </div>
         ) : tournaments.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🏆</div>
-            <p className="text-[#666666] text-lg mb-4">No tournaments yet. Be the first to create one!</p>
-            <button onClick={() => setShowCreateForm(true)} className="px-8 py-3 bg-[#00ff88] text-[#0f0f23] font-bold rounded hover:bg-[#00ccff] transition">
-              Create Tournament
+          <div className="text-center py-24 fade-in">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: 'rgba(0,204,255,0.1)' }}>
+              <Trophy size={40} style={{ color: '#00ccff' }} />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">No tournaments yet</h3>
+            <p className="mb-8" style={{ color: '#666' }}>Be the first to create one and start competing!</p>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="px-8 py-3 rounded-xl font-bold shimmer-btn text-[#0f0f23] transition-all hover:-translate-y-0.5"
+            >
+              Create First Tournament
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {tournaments.map((t) => (
-              <div key={t.id} className="bg-[#1a1a3a] border border-[#333333] rounded-lg p-6 hover:border-[#00ccff] transition">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white">{t.name}</h3>
-                  <span className={`px-3 py-1 rounded text-sm font-bold ${
-                    t.status === 'open' ? 'bg-[#00ff88] text-[#0f0f23]' :
-                    t.status === 'active' ? 'bg-[#00ccff] text-[#0f0f23]' :
-                    'bg-[#333333] text-white'
-                  }`}>
+              <div key={t.id} className="rounded-2xl p-6 border transition-all duration-300 hover:-translate-y-1 flex flex-col"
+                style={{ backgroundColor: 'rgba(26,26,58,0.6)', borderColor: '#2a2a4a' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#00ccff')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a4a')}
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className="text-lg font-bold text-white leading-tight">{t.name}</h3>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold capitalize shrink-0" style={statusStyle(t.status)}>
                     {t.status}
                   </span>
                 </div>
-                {t.description && <p className="text-[#666666] text-sm mb-4">{t.description}</p>}
-                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                  <div className="bg-[#0f0f23] rounded p-3">
-                    <div className="text-[#666666]">Format</div>
-                    <div className="text-white font-bold capitalize">{t.format.replace('-', ' ')}</div>
-                  </div>
-                  <div className="bg-[#0f0f23] rounded p-3">
-                    <div className="text-[#666666]">Max Players</div>
-                    <div className="text-white font-bold">{t.maxPlayers}</div>
-                  </div>
-                  <div className="bg-[#0f0f23] rounded p-3">
-                    <div className="text-[#666666]">Entry Fee</div>
-                    <div className="text-[#00ff88] font-bold">{t.entryFee} ETH</div>
-                  </div>
-                  <div className="bg-[#0f0f23] rounded p-3">
-                    <div className="text-[#666666]">Prize Pool</div>
-                    <div className="text-[#00ccff] font-bold">{t.prizePool ?? '—'} ETH</div>
-                  </div>
+                {t.description && <p className="text-sm mb-4 leading-relaxed" style={{ color: '#888' }}>{t.description}</p>}
+
+                <div className="grid grid-cols-2 gap-2 mb-5 mt-auto">
+                  {[
+                    { icon: Layers, label: 'Format', value: t.format.replace(/-/g, ' '), color: '#888' },
+                    { icon: Users, label: 'Max Players', value: String(t.maxPlayers), color: '#888' },
+                    { icon: DollarSign, label: 'Entry Fee', value: `${t.entryFee} ETH`, color: '#00ff88' },
+                    { icon: Trophy, label: 'Prize Pool', value: t.prizePool ? `${t.prizePool} ETH` : 'TBD', color: '#00ccff' },
+                  ].map(({ icon: Icon, label, value, color }) => (
+                    <div key={label} className="rounded-xl p-3" style={{ backgroundColor: '#0f0f23' }}>
+                      <div className="text-xs mb-1" style={{ color: '#555' }}>{label}</div>
+                      <div className="font-bold capitalize text-sm" style={{ color }}>{value}</div>
+                    </div>
+                  ))}
                 </div>
+
                 {t.status === 'open' && (
-                  <button className="w-full px-4 py-2 bg-[#00ccff] text-[#0f0f23] font-bold rounded hover:bg-[#00ff88] transition">
+                  <button className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'rgba(0,204,255,0.15)', color: '#00ccff', border: '1px solid rgba(0,204,255,0.3)' }}>
                     Join Tournament
                   </button>
                 )}
@@ -152,6 +195,6 @@ export default function TournamentsPage() {
           </div>
         )}
       </section>
-    </main>
+    </Layout>
   )
 }

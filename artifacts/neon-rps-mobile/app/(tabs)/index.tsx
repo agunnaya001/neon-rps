@@ -144,7 +144,6 @@ export default function HomeScreen() {
             label: "Quick Match",
             sub: "1v1 with ETH wager",
             icon: "flash" as const,
-            iconLib: "Ionicons" as const,
             color: colors.primary,
             route: "/(tabs)/play",
           },
@@ -152,7 +151,6 @@ export default function HomeScreen() {
             label: "Tournaments",
             sub: "Compete for prize pools",
             icon: "trophy" as const,
-            iconLib: "Ionicons" as const,
             color: colors.secondary,
             route: "/(tabs)/tournaments",
           },
@@ -160,7 +158,6 @@ export default function HomeScreen() {
             label: "Daily Challenge",
             sub: "Earn ETH every day",
             icon: "flash" as const,
-            iconLib: "Ionicons" as const,
             color: colors.accent,
             route: "/(tabs)/challenges",
           },
@@ -168,7 +165,6 @@ export default function HomeScreen() {
             label: "Leaderboard",
             sub: "See top players",
             icon: "bar-chart-outline" as const,
-            iconLib: "Ionicons" as const,
             color: colors.primary,
             route: "/(tabs)/leaderboard",
           },
@@ -181,11 +177,7 @@ export default function HomeScreen() {
             ]}
             onPress={() => router.push(item.route as any)}
           >
-            {item.iconLib === "Ionicons" ? (
-              <Ionicons name={item.icon as any} size={28} color={item.color} />
-            ) : (
-              <Feather name={item.icon as any} size={28} color={item.color} />
-            )}
+            <Ionicons name={item.icon as any} size={28} color={item.color} />
             <Text style={s.gridLabel}>{item.label}</Text>
             <Text style={s.gridSub}>{item.sub}</Text>
           </Pressable>

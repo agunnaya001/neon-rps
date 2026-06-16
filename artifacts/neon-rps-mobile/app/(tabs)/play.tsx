@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -41,7 +41,7 @@ const MODES = [
     id: "challenge" as GameMode,
     label: "Daily Challenge",
     sub: "Complete for ETH rewards",
-    icon: "bolt-lightning" as const,
+    icon: "flash" as const,
     color: "#ff006e",
     tag1: "Daily",
     tag2: "Rewards",
@@ -215,7 +215,7 @@ export default function PlayScreen() {
               style={[s.startBtn, { marginTop: 16, backgroundColor: colors.accent }]}
               onPress={() => router.push("/(tabs)/challenges")}
             >
-              <Ionicons name="bolt-lightning" size={18} color="#ffffff" />
+              <Ionicons name="flash" size={18} color="#ffffff" />
               <Text style={[s.startBtnText, { color: "#ffffff" }]}>View Challenge</Text>
             </Pressable>
           </View>
