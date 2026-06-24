@@ -1,36 +1,4 @@
-modules = ["nodejs-24"]
-
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
-
-[workflows]
-runButton = "Project"
-
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
-
-[[ports]]
-localPort = 8080
-externalPort = 80
-
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
-[[ports]]
-localPort = 24029
-externalPort = 3000
-
-[[ports]]
-localPort = 25220
-externalPort = 3001
+# .replit
+run = "pnpm --filter @workspace/api-server run dev"
+# Optionally ensure deps are installed on boot:
+onBoot = "pnpm install --frozen-lockfile"
