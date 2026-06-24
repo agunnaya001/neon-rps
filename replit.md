@@ -1,45 +1,113 @@
-# [Project name]
+# neon-rps
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+The fairest on-chain Rock-Paper-Scissors — server + DB for running and developing the game backend and contracts (dev-focused).
 
-## Run & Operate
+## Replit quickstart
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+Notes: Replit does not provide a managed Postgres by default. Use a hosted Postgres (Neon, Supabase, ElephantSQL, etc.) and add its connection string to Replit Secrets as DATABASE_URL.
 
-## Stack
+1. Create a Postgres database (Neon recommended for this project).
+2. In your Replit project, add a secret:
+   - Key: DATABASE_URL
+   - Value: the full Postgres connection string (e.g. `postgres://user:pass@host:port/dbname`)
+3. (Optional) Add a secret for any other env vars you need (see Environment variables below).
+4. Add a `.replit` file (example below) so Replit runs the workspace dev server.
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+Example .replit (place at repo root):
 
-## Where things live
+```toml
+# .replit
+run = "pnpm --filter @workspace/api-server run dev"
+# Optionally ensure deps are installed on boot:
+onBoot = "pnpm install --frozen-lockfile"
+```
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+Important: Replit expects your server to bind to the port in process.env.PORT. Ensure the API server falls back to process.env.PORT || 5000.
 
-## Architecture decisions
+## Local development (recommended)
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+Requirements
+- Node.js 24+
+- pnpm
+- PostgreSQL (or a remote DATABASE_URL)
 
-## Product
+Common commands:
+- Install: pnpm install
+- Run API server (dev): pnpm --filter @workspace/api-server run dev
+- Typecheck: pnpm run typecheck
+- Build: pnpm run build
+- Regenerate API code & schemas: pnpm --filter @workspace/api-spec run codegen
+- Push DB schema (development only): pnpm --filter @workspace/db run push
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+## Environment variables
 
-## User preferences
+Minimum required:
+- DATABASE_URL — Postgres connection string (e.g. for Neon). Must be reachable from Replit.
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+Optional (example):
+- NODE_ENV — development/production
+- PORT — server port (Replit sets this automatically; the server should use process.env.PORT)
+- LOG_LEVEL — debug/info/warn/error
 
-## Gotchas
+Add these to Replit Secrets (not in repo).
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+## Where things live (short map)
+
+- packages/api-server — Express API server, main dev entrypoint
+- packages/db — Drizzle schema and migrations
+- packages/api-spec — OpenAPI spec, Orval codegen (zod + hooks)
+- pnpm-workspace.yaml — workspace packages
+- package.json (root) — workspace scripts
+- replit.md — this file
+
+(Replace paths above if your monorepo package names differ — the repo uses @workspace/* package names.)
+
+## Architecture decisions (summary)
+
+- Monorepo with pnpm workspaces for sharing DB types and API spec between packages.
+- Drizzle ORM + Zod for types-first DB and validation; Orval for generating API client/hooks from the OpenAPI spec.
+- esbuild for fast CJS bundles in build step (keeps CI fast).
+
+## Product (short)
+
+- Backend API to coordinate on-chain Rock-Paper-Scissors matches and store off-chain metadata/state.
+- DB contains match metadata and off-chain state required by the protocol.
+
+## Gotchas / Troubleshooting
+
+- Replit ephemeral filesystem: do not rely on local files for persistent data — use external DB.
+- Database migrations: only run pnpm --filter @workspace/db run push for dev environments. For production, follow your DB provider's recommended migration procedures.
+- Port binding: Replit provides a PORT env var. Ensure the API server uses process.env.PORT with a fallback.
+- Slow cold-start on Replit: preinstall dependencies (onBoot) to reduce cold starts.
+- If you see connection failures on Replit, verify your DB provider allows connections from Replit IPs or uses connection pooling / secure tunnels.
+
+## Quick checklist to get running on Replit
+
+- [ ] Create Neon (or other) Postgres and copy connection string
+- [ ] Add DATABASE_URL as a Replit secret
+- [ ] Add `.replit` file (or configure Replit to run the run command)
+- [ ] Ensure API reads process.env.PORT
+- [ ] Start repl and visit the provided web URL
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Dev server: packages/api-server — entrypoint for development and Replit run command
+- DB schema: packages/db — Drizzle schema & migrations
+- API contract: packages/api-spec — OpenAPI spec and Orval configuration
+- Use `pnpm --filter <package> run <script>` to target workspace packages
+
+## Troubleshooting tips
+
+- "Cannot connect to DB": double-check DATABASE_URL and network access (IP whitelist).
+- "Port in use" or no web link on Replit: ensure the server binds to process.env.PORT.
+- "Type errors after codegen": run pnpm --filter @workspace/api-spec run codegen and then pnpm run typecheck.
+
+## Contributing
+
+- Follow existing workspace lint/typecheck/build scripts (root package.json).
+- Add tests and an entry in packages that require new functionality; open a PR with a clear description and follow the repo's CI checks.
+
+---
+If you'd like, I can:
+- open a branch & create a PR that replaces the current replit.md with this version and add a `.replit` file; or
+- inspect the API server package to confirm it uses process.env.PORT and, if not, create a small patch to add that fallback.
