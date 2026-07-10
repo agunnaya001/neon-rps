@@ -7,6 +7,7 @@ import { NetworkBanner } from "@/components/NetworkBanner";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { BottomNav } from "@/components/BottomNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 const Home = lazy(() => import("@/pages/Home"));
 const CreateGame = lazy(() => import("@/pages/CreateGame"));
@@ -59,6 +60,7 @@ function App() {
             </ErrorBoundary>
             <BottomNav />
           </WouterRouter>
+          <NotificationCenter />
           <Toaster
             theme="dark"
             toastOptions={{ className: "arcade-box font-mono !border-primary" }}
