@@ -46,24 +46,9 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset)
 
-    // Get participant counts for each tournament
-    const enrichedTournaments = await Promise.all(
-      tournaments.map(async (t) => {
-        const participants = await db
-          .select({ count: db.count() })
-          .from(rpsTournamentParticipants)
-          .where(eq(rpsTournamentParticipants.tournamentId, t.id))
-
-        return {
-          ...t,
-          participantCount: participants[0]?.count || 0,
-        }
-      })
-    )
-
     return NextResponse.json({
       success: true,
-      data: enrichedTournaments,
+      data: tournaments,
       pagination: { page, limit },
     })
   } catch (error) {

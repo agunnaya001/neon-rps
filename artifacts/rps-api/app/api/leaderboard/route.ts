@@ -60,27 +60,22 @@ export async function GET(request: NextRequest) {
 
     const leaderboard = await query
       .orderBy(orderByField)
-      .limit(limit)
+      .limit(limit + 1) // Fetch one extra to check if there are more results
       .offset(offset)
 
-    // Get total count
-    const countResult = await db
-      .select({ count: db.count() })
-      .from(rpsPlayerStats)
-
-    const total = countResult[0]?.count || 0
+    const hasMore = leaderboard.length > limit
+    const results = hasMore ? leaderboard.slice(0, limit) : leaderboard
 
     return NextResponse.json({
       success: true,
-      data: leaderboard.map((entry, index) => ({
+      data: results.map((entry, index) => ({
         rank: offset + index + 1,
         ...entry,
       })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        hasMore,
       },
     })
   } catch (error) {

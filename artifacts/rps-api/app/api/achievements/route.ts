@@ -6,71 +6,41 @@ import { eq } from 'drizzle-orm'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const walletAddress = searchParams.get('wallet')
+    const wallet = searchParams.get('wallet')
 
-    if (!walletAddress) {
-      // Return all achievements
-      const achievements = await db.select().from(rpsAchievements)
+    const achievements = await db.select().from(rpsAchievements)
+
+    if (!wallet) {
       return NextResponse.json({
         success: true,
         data: achievements,
       })
     }
 
-    // Get achievements for specific player
-    const player = await db
-      .select()
-      .from(rpsPlayers)
-      .where(eq(rpsPlayers.walletAddress, walletAddress))
-      .limit(1)
+    // Get player achievements
+    const player = await db.select().from(rpsPlayers).where(eq(rpsPlayers.walletAddress, wallet)).limit(1)
 
     if (!player.length) {
-      return NextResponse.json(
-        { success: false, error: 'Player not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        success: true,
+        data: achievements.map(a => ({ ...a, unlocked: false })),
+      })
     }
 
     const playerId = player[0].id
-
-    // Get all achievements with player unlock status
-    const achievementsWithStatus = await db
-      .select({
-        id: rpsAchievements.id,
-        name: rpsAchievements.name,
-        description: rpsAchievements.description,
-        iconUrl: rpsAchievements.iconUrl,
-        rarity: rpsAchievements.rarity,
-        unlockedAt: rpsPlayerAchievements.unlockedAt,
-        isUnlocked: rpsPlayerAchievements.id,
-      })
-      .from(rpsAchievements)
-      .leftJoin(
-        rpsPlayerAchievements,
-        eq(rpsAchievements.id, rpsPlayerAchievements.achievementId)
-      )
-      .where(eq(rpsPlayerAchievements.playerId, playerId))
-
-    const unlockedAchievements = await db
-      .select()
+    const playerAchievements = await db
+      .select({ achievementId: rpsPlayerAchievements.achievementId })
       .from(rpsPlayerAchievements)
       .where(eq(rpsPlayerAchievements.playerId, playerId))
 
+    const unlockedIds = new Set(playerAchievements.map(pa => pa.achievementId))
+
     return NextResponse.json({
       success: true,
-      data: {
-        total: (await db.select().from(rpsAchievements)).length,
-        unlocked: unlockedAchievements.length,
-        achievements: achievementsWithStatus.map((ach) => ({
-          id: ach.id,
-          name: ach.name,
-          description: ach.description,
-          iconUrl: ach.iconUrl,
-          rarity: ach.rarity,
-          unlocked: !!ach.isUnlocked,
-          unlockedAt: ach.unlockedAt,
-        })),
-      },
+      data: achievements.map(a => ({
+        ...a,
+        unlocked: unlockedIds.has(a.id),
+      })),
     })
   } catch (error) {
     console.error('[API] Achievements error:', error)
