@@ -1,16 +1,37 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
+  "name": "neon-rps",
+  "version": "1.0.0",
+  "description": "On-chain Rock Paper Scissors with commit-reveal on Base",
   "license": "MIT",
+  "private": true,
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "pnpm run -C artifacts/rps-game dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build:contracts": "pnpm -C lib/contracts build",
+    "test:contracts": "pnpm -C lib/contracts test",
+    "test:backend": "pnpm -C backend test",
+    "test": "pnpm run test:contracts && pnpm run test:backend",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "codegen": "pnpm -C lib/api-spec codegen"
   },
-  "private": true,
   "devDependencies": {
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.6.1",
+    "@types/pg": "^8.20.0",
+    "autoprefixer": "^10.5.0",
+    "better-auth": "^1.6.14",
+    "drizzle-orm": "^0.35.0",
+    "nanoid": "^5.1.11",
+    "pg": "^8.21.0",
+    "postcss": "^8.5.15",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0"
   }
 }
