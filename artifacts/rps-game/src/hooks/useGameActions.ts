@@ -17,24 +17,46 @@ import {
   rememberPendingGameId,
   saveCommitment,
 } from "@/lib/salt-store";
+import { parseContractError, isNetworkError, isRetryableError } from "@/lib/errors";
 
-type Status = "idle" | "preparing" | "submitting" | "confirming" | "success" | "error";
+type Status = "idle" | "preparing" | "submitting" | "confirming" | "success" | "error" | "retrying";
 
 function useTxStatus() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<Error | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const reset = useCallback(() => {
     setStatus("idle");
     setError(null);
     setTxHash(null);
+    setRetryCount(0);
   }, []);
-  return { status, setStatus, error, setError, txHash, setTxHash, reset };
+  return { status, setStatus, error, setError, txHash, setTxHash, reset, retryCount, setRetryCount };
 }
 
 function ensureReady(address: string | undefined): asserts address is `0x${string}` {
   if (!address) throw new Error("Connect a wallet first");
   if (!CONTRACT_ADDRESS) throw new Error("Contract address is not configured");
+}
+
+// Auto-retry with exponential backoff on network errors
+async function executeWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err as Error;
+      if (!isRetryableError(err) || i === maxRetries) throw err;
+      const delay = Math.pow(2, i) * 1000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 }
 
 export function useCreateGame() {
@@ -113,9 +135,11 @@ export function useCreateGame() {
         tx.setStatus("success");
         return gameId;
       } catch (err) {
-        tx.setError(err as Error);
+        const friendlyError = parseContractError(err);
+        const error = new Error(friendlyError);
+        tx.setError(error);
         tx.setStatus("error");
-        throw err;
+        throw error;
       }
     },
     [address, balance, publicClient, writeContractAsync, tx],

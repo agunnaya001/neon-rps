@@ -1,0 +1,120 @@
+name: Deploy Neon RPS
+
+on:
+  push:
+    branches:
+      - main
+      - deploy/*
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 20.x
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: artifacts/rps-api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: artifacts/rps-api
+        run: npm install
+
+      - name: Run type check
+        working-directory: artifacts/rps-api
+        run: npm run type-check
+
+      - name: Build
+        working-directory: artifacts/rps-api
+        run: npm run build
+
+      - name: Deploy to Vercel
+        uses: vercel/action@v6
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_RPS_API_PROJECT_ID }}
+          working-directory: artifacts/rps-api
+          production: true
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: artifacts/rps-game/package-lock.json
+
+      - name: Install dependencies
+        working-directory: artifacts/rps-game
+        run: npm install
+
+      - name: Build
+        working-directory: artifacts/rps-game
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_CONTRACT_ADDRESS: ${{ secrets.VITE_BEST_OF_THREE_V2_ADDRESS }}
+          BASE_PATH: /
+
+      - name: Deploy to Vercel
+        uses: vercel/action@v6
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_RPS_FRONTEND_PROJECT_ID }}
+          working-directory: artifacts/rps-game
+          production: true
+
+  verify-deployment:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    steps:
+      - name: Check backend health
+        run: |
+          echo "Checking backend API health..."
+          curl -f ${{ secrets.VITE_API_URL }}/api/leaderboard?limit=1 || exit 1
+          echo "✅ Backend is healthy"
+
+      - name: Check frontend
+        run: |
+          echo "Checking frontend..."
+          curl -f https://${{ secrets.FRONTEND_DOMAIN }} > /dev/null || exit 1
+          echo "✅ Frontend is accessible"
+
+      - name: Post deployment notification
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Frontend: https://${{ secrets.FRONTEND_DOMAIN }}"
+          echo "API: ${{ secrets.VITE_API_URL }}"
+
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: verify-deployment
+    if: always()
+    steps:
+      - name: Send Discord notification
+        if: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "Neon RPS Deployment"
+          description: "Backend and frontend deployed successfully"
