@@ -10,7 +10,29 @@ import ChallengesPage from "@/pages/challenges";
 import BattlePassPage from "@/pages/battle-pass";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+// Optimized QueryClient configuration for better caching and performance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Keep data in cache for 5 minutes before considering it stale
+      staleTime: 5 * 60 * 1000,
+      // Keep data in garbage collection queue for 10 minutes
+      gcTime: 10 * 60 * 1000,
+      // Disable automatic refetch on window focus (useful for game data)
+      refetchOnWindowFocus: false,
+      // Refetch on mount only if data is stale
+      refetchOnMount: 'stale',
+      // Retry failed requests up to 2 times with exponential backoff
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+    mutations: {
+      // Retry failed mutations up to 1 time
+      retry: 1,
+      retryDelay: 1000,
+    },
+  },
+});
 
 function Router() {
   return (
