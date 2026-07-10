@@ -1,16 +1,18 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 
-const rawPort = process.env.PORT;
-const port = Number(rawPort ?? "5000");
+const rawPort = process.env["PORT"];
 
-if (rawPort == null) {
-  logger.info({ port }, "PORT not provided; using default port");
+if (!rawPort) {
+  throw new Error(
+    "PORT environment variable is required but was not provided.",
+  );
 }
 
+const port = Number(rawPort);
+
 if (Number.isNaN(port) || port <= 0) {
-  logger.error({ rawPort }, `Invalid PORT value: "${rawPort}"`);
-  process.exit(1);
+  throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
 app.listen(port, (err) => {
